@@ -5,8 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "package": "npm run build && npm run package:prepare",
-    "package:prepare": "node scripts/package.js",
+    "bundle": "ncc build src/index.ts -o dist && npm run bundle:cleanup",
+    "bundle:cleanup": "cd dist && find . -type f ! -name 'index.js' -delete && cd ..",
+    "package": "npm run bundle",
+    "clean": "rm -rf dist",
     "test:local": "npm run build && cd local-test && npm install && npm test"
   },
   "dependencies": {
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/q": "^1.5.8",
+    "@vercel/ncc": "^0.38.4",
     "typescript": "^5.3.3"
   },
   "engines": {

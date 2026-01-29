@@ -113,10 +113,19 @@ jobs:
 
 ## Building
 
+The action is bundled into a single `dist/index.js` file that includes all dependencies.
+
 ```bash
 npm install
-npm run build
+npm run bundle
 ```
+
+This will:
+1. Compile TypeScript source files
+2. Bundle all dependencies into a single `dist/index.js` file using `@vercel/ncc`
+3. Generate source maps and license information
+
+**Note:** The bundled `dist/index.js` file must be committed to the repository for the action to work in GitHub Actions.
 
 ## License
 
