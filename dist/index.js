@@ -92621,6 +92621,24 @@ class ScanDto {
     set ComponentProfileUrl(val) {
         this._componentProfileUrl = val;
     }
+    get SandboxId() {
+        return this._sandboxId;
+    }
+    set SandboxId(val) {
+        this._sandboxId = val;
+    }
+    get SandboxName() {
+        return this._sandboxName;
+    }
+    set SandboxName(val) {
+        this._sandboxName = val;
+    }
+    get BuildName() {
+        return this._buildName;
+    }
+    set BuildName(val) {
+        this._buildName = val;
+    }
 }
 exports.ScanDto = ScanDto;
 /**
@@ -92980,6 +92998,24 @@ class FlawImporterParametersDto {
     }
     set AdoProject(val) {
         this._adoProject = val;
+    }
+    get AdoOpenState() {
+        return this._adoOpenState;
+    }
+    set AdoOpenState(val) {
+        this._adoOpenState = val;
+    }
+    get AdoCloseState() {
+        return this._adoCloseState;
+    }
+    set AdoCloseState(val) {
+        this._adoCloseState = val;
+    }
+    get AdoReopenState() {
+        return this._adoReopenState;
+    }
+    set AdoReopenState(val) {
+        this._adoReopenState = val;
     }
 }
 exports.FlawImporterParametersDto = FlawImporterParametersDto;
@@ -94542,6 +94578,13 @@ class InputsManager {
             importerParameters.AdoToken = core.getInput('ado-token', { required: true });
             importerParameters.AdoOrg = core.getInput('ado-org', { required: true });
             importerParameters.AdoProject = core.getInput('ado-project', { required: true });
+            // Work item state settings
+            importerParameters.AdoOpenState = core.getInput('open-state', { required: false }) || 'New';
+            importerParameters.AdoCloseState = core.getInput('close-state', { required: false }) || 'Closed';
+            importerParameters.AdoReopenState = core.getInput('reopen-state', { required: false }) || 'New';
+            core.info(`Open State: ${importerParameters.AdoOpenState}`);
+            core.info(`Close State: ${importerParameters.AdoCloseState}`);
+            core.info(`Reopen State: ${importerParameters.AdoReopenState}`);
             // Application details
             importerParameters.VeracodeAppProfile = core.getInput('veracode-app-profile', { required: true });
             core.info(`Application Name: ${importerParameters.VeracodeAppProfile}`);

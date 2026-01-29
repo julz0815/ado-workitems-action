@@ -32,6 +32,14 @@ export class InputsManager {
       importerParameters.AdoToken = core.getInput('ado-token', { required: true });
       importerParameters.AdoOrg = core.getInput('ado-org', { required: true });
       importerParameters.AdoProject = core.getInput('ado-project', { required: true });
+      
+      // Work item state settings
+      importerParameters.AdoOpenState = core.getInput('open-state', { required: false }) || 'New';
+      importerParameters.AdoCloseState = core.getInput('close-state', { required: false }) || 'Closed';
+      importerParameters.AdoReopenState = core.getInput('reopen-state', { required: false }) || 'New';
+      core.info(`Open State: ${importerParameters.AdoOpenState}`);
+      core.info(`Close State: ${importerParameters.AdoCloseState}`);
+      core.info(`Reopen State: ${importerParameters.AdoReopenState}`);
 
       // Application details
       importerParameters.VeracodeAppProfile = core.getInput('veracode-app-profile', { required: true });

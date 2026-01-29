@@ -295,6 +295,9 @@ export class ScanDto {
 	private _staticAnalysisUnitId!: string;
 	private _analysisId!: string;
 	private _componentProfileUrl!: string;
+	private _sandboxId!: string;
+	private _sandboxName!: string;
+	private _buildName!: string;
 
 	get AnalysisType() {
 		return this._analysis_type;
@@ -385,6 +388,24 @@ export class ScanDto {
 	}
 	set ComponentProfileUrl(val: string) {
 		this._componentProfileUrl = val;
+	}
+	get SandboxId() {
+		return this._sandboxId;
+	}
+	set SandboxId(val: string) {
+		this._sandboxId = val;
+	}
+	get SandboxName() {
+		return this._sandboxName;
+	}
+	set SandboxName(val: string) {
+		this._sandboxName = val;
+	}
+	get BuildName() {
+		return this._buildName;
+	}
+	set BuildName(val: string) {
+		this._buildName = val;
 	}
 }
 
@@ -581,6 +602,11 @@ export class FlawImporterParametersDto {
 	private _adoToken!: string;
 	private _adoOrg!: string;
 	private _adoProject!: string;
+	
+	// Work item state fields
+	private _adoOpenState!: string;
+	private _adoCloseState!: string;
+	private _adoReopenState!: string;
 
 	//Proxy related fields
 	private _pport!: string;
@@ -794,6 +820,24 @@ export class FlawImporterParametersDto {
 	}
 	set AdoProject(val: string) {
 		this._adoProject = val;
+	}
+	get AdoOpenState() {
+		return this._adoOpenState;
+	}
+	set AdoOpenState(val: string) {
+		this._adoOpenState = val;
+	}
+	get AdoCloseState() {
+		return this._adoCloseState;
+	}
+	set AdoCloseState(val: string) {
+		this._adoCloseState = val;
+	}
+	get AdoReopenState() {
+		return this._adoReopenState;
+	}
+	set AdoReopenState(val: string) {
+		this._adoReopenState = val;
 	}
 }
 
