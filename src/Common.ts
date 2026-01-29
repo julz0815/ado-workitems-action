@@ -195,9 +195,12 @@ export class WorkItemDto {
 	private _fixByDate!: string;
 	private _scanTypeAsTag!: string;
 	private _severityAsTag!: string;
+	private _annotations: Array<any>;
+	private _resolutionStatus!: string;
 
 	constructor() {
 		this._tags = new Array<string>();
+		this._annotations = new Array<any>();
 	}
 
 	get FlawComments() {
@@ -272,6 +275,18 @@ export class WorkItemDto {
 	}
 	set SeverityTag(val: string) {
 		this._severityAsTag = val;
+	}
+	get Annotations() {
+		return this._annotations;
+	}
+	set Annotations(val: Array<any>) {
+		this._annotations = val;
+	}
+	get ResolutionStatus() {
+		return this._resolutionStatus;
+	}
+	set ResolutionStatus(val: string) {
+		this._resolutionStatus = val;
 	}
 }
 

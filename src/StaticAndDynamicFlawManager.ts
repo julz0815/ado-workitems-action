@@ -164,9 +164,9 @@ export class StaticAndDynamicFlawManager {
                 const flawDetails = this.convertFindingToFlawDto(finding);
                 cweDetails.FlawList.push(flawDetails);
                 
-                // Generate work item data
+                // Generate work item data - pass raw finding to access annotations
                 const scanTypeAsTag = importParameters.ScanTypeTag ? "SAST" : "";
-                this.generateWorkItemData(flawDetails, cweDetails, categoryDetails, sevData, importParameters, scanDetails, workItemsCreationData, scanTypeAsTag);
+                this.generateWorkItemDataFromAPI(flawDetails, finding, cweDetails, categoryDetails, sevData, importParameters, scanDetails, workItemsCreationData, scanTypeAsTag);
             }
             
             categoryDetails.CweList.push(cweDetails);
@@ -225,6 +225,15 @@ export class StaticAndDynamicFlawManager {
         }
         
         return flawDetails;
+    }
+
+    /**
+     * Store raw annotations in FlawDto for later processing
+     * This is a helper to preserve annotations for mitigation handling
+     */
+    private storeAnnotationsInFlawDto(flawDetails: CommonData.FlawDto, finding: any): void {
+        // Store raw annotations - we'll access them via the finding object later
+        // For now, we'll pass them through the WorkItemDto
     }
 
     /**
@@ -518,7 +527,77 @@ export class StaticAndDynamicFlawManager {
     }
 
     /**
-     * Generate work Item data based on detailed report
+     * Generate work Item data from API findings (with annotations support)
+     *  @param {CommonData.FlawDto} flawData - veracode flaw related data
+     *  @param {any} rawFinding - raw finding object from API (for annotations)
+     *  @param {CommonData.cweDto} cweData - veracode flaw cwe related data
+     *  @param {CommonData.CategoryDetailedReportDto} catData - veracode flaw category related data
+     *  @param {CommonData.SeverityDetailedReportDto} sevData - veracode flaw severity related data
+     *  @param {CommonData.FlawImporterParametersDto} importParameters - inputs provided in VSTS UI
+     *  @param {CommonData.ScanDto} scanDetails - veracode scan details
+     *  @param {CommonData.workItemsDataDto} workItemsCreationData - VSTS Work Items creation related data
+     *  @param {string} scanTypeAsTag - scan type tag value
+     */
+    private generateWorkItemDataFromAPI(
+        flawData: CommonData.FlawDto,
+        rawFinding: any,
+        cweData: CommonData.cweDto,
+        catData: CommonData.CategoryDetailedReportDto,
+        sevData: CommonData.SeverityDetailedReportDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        scanDetails: CommonData.ScanDto,
+        workItemsCreationData: CommonData.workItemsDataDto,
+        scanTypeAsTag: string) {
+
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: generateWorkItemDataFromAPI");
+        let workItem = new CommonData.WorkItemDto();
+        workItem.FlawStatus = flawData.RemediationStatus;
+        workItem.Severity = sevData.Level;
+        workItem.ScanTypeTag = scanTypeAsTag;
+        workItem.FlawComments = this.composeWorkItemComments(flawData);
+        workItem.FixByDate = importParameters.DueDateTag && flawData.GracePeriodExpires ? this.formatDueDate(flawData.GracePeriodExpires) : "";
+        
+        // Store annotations and resolution status for mitigation handling
+        if (rawFinding) {
+            workItem.Annotations = rawFinding.annotations || [];
+            workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
+        }
+        
+        this.adjustWorkItemDataByType(flawData, cweData, workItem, catData, scanDetails, importParameters);
+
+        //TypeScript 'switch case' has issues with numbers and enums.
+        //Hence, the multiple 'if else'. However, this seems to be fixed with 
+        //TypeScript 2.1. Here we're using TypeScript 1.8.10
+        //Ref: https://stackoverflow.com/questions/27747437/typescript-enum-switch-not-working
+        if (sevData.Level == 0) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Low; //Information
+        }
+        else if (sevData.Level == 1) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Low; //Very Low
+        }
+        else if (sevData.Level == 2) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Low; //Low
+        }
+        else if (sevData.Level == 3) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Medium; //Medium
+        }
+        else if (sevData.Level == 4) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_High; //High
+        }
+        else {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Critical; //Very High
+        }
+
+        this.manipulateWorkItemTags(cweData, workItem, scanDetails, importParameters, workItemsCreationData);
+        workItemsCreationData.ImportType = importParameters.ImportType;
+        // Filter flaws according to user preferences
+        workItem.IsOpenAccordingtoMitigationStatus = true;
+        workItem.AffectedbyPolicy = flawData.FlawAffectedbyPolicy;
+        this.commonHelper.filterWorkItemsByFlawType(flawData, workItem, workItemsCreationData, importParameters);
+    }
+
+    /**
+     * Generate work Item data based on detailed report (XML-based, original method)
      *  @param {CommonData.FlawDto} flawData - veracode flaw related data
      *  @param {CommonData.cweDto} cweData - veracode flaw cwe related data
      *  @param {CommonData.CategoryDetailedReportDto} catData - veracode flaw category related data

@@ -79,7 +79,11 @@ export class SCAFlawManager {
             
             if (vulnerableComponent && vulnerableComponent.Vulnerabilities.length > 0) {
                 console.log(`Vulnerabilities count: ${vulnerableComponent.Vulnerabilities.length}`);
-                vulnerableComponent.Vulnerabilities.forEach(vulnerability => {
+                // Match vulnerabilities with their raw findings
+                for (let i = 0; i < vulnerableComponent.Vulnerabilities.length; i++) {
+                    const vulnerability = vulnerableComponent.Vulnerabilities[i];
+                    const rawFinding = componentFindings[i]; // Get corresponding raw finding
+                    
                     let flawData = new CommonData.FlawDto();
                     if (vulnerability.IsMitigation) {
                         flawData.MitigationStatus = CommonData.Constants.mitigation_Status_Accepted;
@@ -88,13 +92,23 @@ export class SCAFlawManager {
                     }
                     flawData.FlawAffectedbyPolicy = vulnerability.DoesAffectPolicy;
                     vulnerability.FilePathList = vulnerableComponent.FilePathsList;
+                    
+                    // Create work item with annotations from raw finding
+                    const workItem = this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion);
+                    
+                    // Store annotations and resolution status for mitigation handling
+                    if (rawFinding) {
+                        workItem.Annotations = rawFinding.annotations || [];
+                        workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
+                    }
+                    
                     this.commonHelper.filterWorkItemsByFlawType(
                         flawData,
-                        this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion),
+                        workItem,
                         workItemDetails,
                         importParameters
                     );
-                });
+                }
             }
         }
     }

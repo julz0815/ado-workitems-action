@@ -72,6 +72,7 @@ export class WorkItemCreatoroAuth {
     commonActivity: CommonData.CommonHelper;
     addCustomFields!: vss.JsonPatchOperation[];
     private failBuildIfFlawImporterBuildStepFails: boolean;
+    private importParameters: CommonData.FlawImporterParametersDto;
     constructor(importParameters: CommonData.FlawImporterParametersDto, projectName: string) {
         console.log("Initializing Workitem Creator... \n" +
             "Retrieving environment values...");
@@ -79,6 +80,7 @@ export class WorkItemCreatoroAuth {
         this.collectionUrl = `https://dev.azure.com/${importParameters.AdoOrg}`;
         this.projName = projectName;
         this.accessToken = importParameters.AdoToken;
+        this.importParameters = importParameters; // Store for later use
         let creds = vm.getBearerHandler(this.accessToken);
         core.debug("creds value : " + creds);
         this.connection = new vm.WebApi(this.collectionUrl, creds);
@@ -486,43 +488,181 @@ export class WorkItemCreatoroAuth {
 
          try {
             let didStateChange = false;
-            if (this.commonActivity.isReopened(this.processTemplate,
-                flawItem,
-                retrievedWi,
-                this.workItemStateNew,
-                this.workItemStateClosed,
-                this.workItemStateResolved)) {
-
-                core.debug("Work item is reopened");
-                // CMMI template does not support to change closed workitem to 'proposed' status,
-                // hence changing same to 'Active'    
-                // CCMI test cases need to chage to 'Design' for re open
-                if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && this.workItemType == CommonData.Constants.wiType_TestCase) {
-                    this.workItemStateNew = CommonData.Constants.wiStatus_Design;
-                } else if (this.processTemplate == CommonData.Constants.processTemplate_CMMI) {
-                    this.workItemStateNew = CommonData.Constants.wiStatus_Active;
+            
+            // Check if this is an SCA work item (has CVE in title or component in title)
+            const title = String(retrievedWi.fields["System.Title"] || "").toLowerCase();
+            const isSCAFlaw = /cve-\d{4}-\d+/i.test(title) || /component/i.test(title);
+            
+            // Process annotations if available
+            if (flawItem.Annotations && flawItem.Annotations.length > 0) {
+                // Add mitigation comments (avoiding duplicates)
+                await this.addMitigationComments(workItemRef.id!, flawItem.Annotations);
+                
+                // Process annotations to determine action
+                const annotationResult = this.processAnnotations(flawItem.Annotations);
+                const currentState = retrievedWi.fields["System.State"] || '';
+                const isClosedState = currentState === this.workItemStateClosed || 
+                                    currentState === 'Closed' || 
+                                    currentState === 'Resolved' || 
+                                    currentState === 'Done';
+                const isOpenState = !isClosedState;
+                
+                if (isSCAFlaw) {
+                    // SCA-specific logic: APPROVED -> close, others -> reopen
+                    if (annotationResult.action === 'close' && isOpenState) {
+                        console.log(`Closing SCA work item ${workItemRef.id} - most recent annotation is APPROVED`);
+                        await this.updateWorkitemState(
+                            workItemRef.id!,
+                            this.importParameters.AdoCloseState || this.workItemStateClosed,
+                            workItemDetails.Area,
+                            workItemDetails.OverwriteAreaPathInWorkItemsOnImport,
+                            null,
+                            retrievedWi,
+                            workItemDetails.BuildVersion,
+                            workItemDetails.IterationPath,
+                            workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
+                            severityPatch
+                        );
+                        didStateChange = true;
+                    } else if ((annotationResult.action === 'reopen' || annotationResult.action === 'update') && isClosedState) {
+                        // For SCA: reopen if REJECTED or any other status (not APPROVED)
+                        console.log(`Reopening SCA work item ${workItemRef.id} - annotation action is ${annotationResult.action}`);
+                        const reopenState = this.importParameters.AdoReopenState || this.workItemStateNew;
+                        // CMMI template adjustments
+                        let actualReopenState = reopenState;
+                        if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && this.workItemType == CommonData.Constants.wiType_TestCase) {
+                            actualReopenState = CommonData.Constants.wiStatus_Design;
+                        } else if (this.processTemplate == CommonData.Constants.processTemplate_CMMI) {
+                            actualReopenState = CommonData.Constants.wiStatus_Active;
+                        }
+                        await this.updateWorkitemState(
+                            workItemRef.id!,
+                            actualReopenState,
+                            workItemDetails.Area,
+                            workItemDetails.OverwriteAreaPathInWorkItemsOnImport,
+                            null,
+                            retrievedWi,
+                            workItemDetails.BuildVersion,
+                            workItemDetails.IterationPath,
+                            workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
+                            severityPatch
+                        );
+                        didStateChange = true;
+                    }
+                } else {
+                    // Static findings logic: same as veracode-flaws-to-issues
+                    // Check resolution_status for APPROVED
+                    if (flawItem.ResolutionStatus === 'APPROVED') {
+                        if (!isClosedState) {
+                            console.log(`Closing static work item ${workItemRef.id} - finding has been mitigated (APPROVED status)`);
+                            await this.updateWorkitemState(
+                                workItemRef.id!,
+                                this.importParameters.AdoCloseState || this.workItemStateClosed,
+                                workItemDetails.Area,
+                                workItemDetails.OverwriteAreaPathInWorkItemsOnImport,
+                                null,
+                                retrievedWi,
+                                workItemDetails.BuildVersion,
+                                workItemDetails.IterationPath,
+                                workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
+                                severityPatch
+                            );
+                            didStateChange = true;
+                        }
+                    } else {
+                        // Flaw is NOT mitigated - check if work item should be reopened
+                        if (isClosedState) {
+                            console.log(`Reopening static work item ${workItemRef.id} - flaw is not mitigated but work item is closed`);
+                            const reopenState = this.importParameters.AdoReopenState || this.workItemStateNew;
+                            // CMMI template adjustments
+                            let actualReopenState = reopenState;
+                            if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && this.workItemType == CommonData.Constants.wiType_TestCase) {
+                                actualReopenState = CommonData.Constants.wiStatus_Design;
+                            } else if (this.processTemplate == CommonData.Constants.processTemplate_CMMI) {
+                                actualReopenState = CommonData.Constants.wiStatus_Active;
+                            }
+                            await this.updateWorkitemState(
+                                workItemRef.id!,
+                                actualReopenState,
+                                workItemDetails.Area,
+                                workItemDetails.OverwriteAreaPathInWorkItemsOnImport,
+                                null,
+                                retrievedWi,
+                                workItemDetails.BuildVersion,
+                                workItemDetails.IterationPath,
+                                workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
+                                severityPatch
+                            );
+                            didStateChange = true;
+                        }
+                    }
+                    
+                    // Handle annotation-based actions (reopen if rejected)
+                    if (annotationResult.action === 'reopen' && isClosedState) {
+                        console.log(`Reopening static work item ${workItemRef.id} - most recent annotation is REJECTED`);
+                        const reopenState = this.importParameters.AdoReopenState || this.workItemStateNew;
+                        // CMMI template adjustments
+                        let actualReopenState = reopenState;
+                        if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && this.workItemType == CommonData.Constants.wiType_TestCase) {
+                            actualReopenState = CommonData.Constants.wiStatus_Design;
+                        } else if (this.processTemplate == CommonData.Constants.processTemplate_CMMI) {
+                            actualReopenState = CommonData.Constants.wiStatus_Active;
+                        }
+                        await this.updateWorkitemState(
+                            workItemRef.id!,
+                            actualReopenState,
+                            workItemDetails.Area,
+                            workItemDetails.OverwriteAreaPathInWorkItemsOnImport,
+                            null,
+                            retrievedWi,
+                            workItemDetails.BuildVersion,
+                            workItemDetails.IterationPath,
+                            workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
+                            severityPatch
+                        );
+                        didStateChange = true;
+                    }
                 }
-                //Re-Open work item
-                console.log(`Work item '${retrievedWi.fields["System.Title"]}' will changed to '${this.workItemStateNew}' state.`);
-                await this.updateWorkitemState(workItemRef.id!, this.workItemStateNew, workItemDetails.Area, workItemDetails.OverwriteAreaPathInWorkItemsOnImport, flawItem.FlawComments || null, retrievedWi, workItemDetails.BuildVersion, workItemDetails.IterationPath, workItemDetails.OverwriteIterationPathInWorkItemsOnImport, severityPatch);
-                didStateChange = true;
+            } else {
+                // No annotations - use original logic
+                if (this.commonActivity.isReopened(this.processTemplate,
+                    flawItem,
+                    retrievedWi,
+                    this.workItemStateNew,
+                    this.workItemStateClosed,
+                    this.workItemStateResolved)) {
+
+                    core.debug("Work item is reopened");
+                    // CMMI template does not support to change closed workitem to 'proposed' status,
+                    // hence changing same to 'Active'    
+                    // CCMI test cases need to chage to 'Design' for re open
+                    if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && this.workItemType == CommonData.Constants.wiType_TestCase) {
+                        this.workItemStateNew = CommonData.Constants.wiStatus_Design;
+                    } else if (this.processTemplate == CommonData.Constants.processTemplate_CMMI) {
+                        this.workItemStateNew = CommonData.Constants.wiStatus_Active;
+                    }
+                    //Re-Open work item
+                    console.log(`Work item '${retrievedWi.fields["System.Title"]}' will changed to '${this.workItemStateNew}' state.`);
+                    await this.updateWorkitemState(workItemRef.id!, this.workItemStateNew, workItemDetails.Area, workItemDetails.OverwriteAreaPathInWorkItemsOnImport, flawItem.FlawComments || null, retrievedWi, workItemDetails.BuildVersion, workItemDetails.IterationPath, workItemDetails.OverwriteIterationPathInWorkItemsOnImport, severityPatch);
+                    didStateChange = true;
+                }
+                else if (flawItem.FlawStatus == CommonData.Constants.remediation_status_Fixed ||
+                    !flawItem.IsOpenAccordingtoMitigationStatus ||
+                    flawItem.FlawStatus == CommonData.Constants.remediation_status_CannotReproduce) {
+                    // work item in CMMI need to be ressolved before closing if current status is Active
+                    if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && retrievedWi.fields["System.State"] == this.workItemStateActive) {
+                        console.log(`Work item '${retrievedWi.fields["System.Title"]}' Will Changed to 'Ressolved' state.`);
+                        await this.updateWorkitemState(workItemRef.id!, this.workItemStateResolved, workItemDetails.Area, workItemDetails.OverwriteAreaPathInWorkItemsOnImport, flawItem.FlawComments || null, retrievedWi, workItemDetails.BuildVersion, workItemDetails.IterationPath, workItemDetails.OverwriteIterationPathInWorkItemsOnImport, severityPatch);
+                        didStateChange = true;
+                    }
+
+                    if (retrievedWi.fields["System.State"] != this.workItemStateClosed) {
+                        console.log(`WorkItem '${retrievedWi.fields["System.Title"]}' Will Changed to 'Closed' state.`);
+                        await this.updateWorkitemState(workItemRef.id!, this.workItemStateClosed, workItemDetails.Area, workItemDetails.OverwriteAreaPathInWorkItemsOnImport, flawItem.FlawComments || null, retrievedWi, workItemDetails.BuildVersion, workItemDetails.IterationPath, workItemDetails.OverwriteIterationPathInWorkItemsOnImport, severityPatch);
+                        didStateChange = true;
+                    }
+                 }
             }
-            else if (flawItem.FlawStatus == CommonData.Constants.remediation_status_Fixed ||
-                !flawItem.IsOpenAccordingtoMitigationStatus ||
-                flawItem.FlawStatus == CommonData.Constants.remediation_status_CannotReproduce) {
-                // work item in CMMI need to be ressolved before closing if current status is Active
-                if (this.processTemplate == CommonData.Constants.processTemplate_CMMI && retrievedWi.fields["System.State"] == this.workItemStateActive) {
-                    console.log(`Work item '${retrievedWi.fields["System.Title"]}' Will Changed to 'Ressolved' state.`);
-                    await this.updateWorkitemState(workItemRef.id!, this.workItemStateResolved, workItemDetails.Area, workItemDetails.OverwriteAreaPathInWorkItemsOnImport, flawItem.FlawComments || null, retrievedWi, workItemDetails.BuildVersion, workItemDetails.IterationPath, workItemDetails.OverwriteIterationPathInWorkItemsOnImport, severityPatch);
-                    didStateChange = true;
-                }
-
-                if (retrievedWi.fields["System.State"] != this.workItemStateClosed) {
-                    console.log(`WorkItem '${retrievedWi.fields["System.Title"]}' Will Changed to 'Closed' state.`);
-                    await this.updateWorkitemState(workItemRef.id!, this.workItemStateClosed, workItemDetails.Area, workItemDetails.OverwriteAreaPathInWorkItemsOnImport, flawItem.FlawComments || null, retrievedWi, workItemDetails.BuildVersion, workItemDetails.IterationPath, workItemDetails.OverwriteIterationPathInWorkItemsOnImport, severityPatch);
-                    didStateChange = true;
-                }
-             }
 
                 if (!didStateChange && severityPatch.length > 0) {
                     console.log(`No state change. Updating severity/tag for WI ${retrievedWi.id}.`);
@@ -704,10 +844,12 @@ export class WorkItemCreatoroAuth {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: handleUnmitigatedFlawsCreation");
         if (flawItem.FlawStatus == CommonData.Constants.remediation_status_Fixed || flawItem.FlawStatus == CommonData.Constants.remediation_status_CannotReproduce) {
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.workItemStateClosed, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
+            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.importParameters.AdoCloseState || this.workItemStateClosed, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
         } else {
             console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}'`);
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.workItemStateNew, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
+            // Use configured open state, fallback to workItemStateNew for backward compatibility
+            const openState = this.importParameters.AdoOpenState || this.workItemStateNew;
+            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: openState, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
         }
     }
 
@@ -721,10 +863,12 @@ export class WorkItemCreatoroAuth {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: handlePolicyViolatedandAllFlawsCreation");
         if (!flawItem.IsOpenAccordingtoMitigationStatus || flawItem.FlawStatus == CommonData.Constants.remediation_status_Fixed || flawItem.FlawStatus == CommonData.Constants.remediation_status_CannotReproduce) {
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.workItemStateClosed, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
+            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.importParameters.AdoCloseState || this.workItemStateClosed, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
         } else {
             console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}'`);
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.workItemStateNew, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
+            // Use configured open state, fallback to workItemStateNew for backward compatibility
+            const openState = this.importParameters.AdoOpenState || this.workItemStateNew;
+            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: openState, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
         }
     }
 
@@ -1105,6 +1249,194 @@ export class WorkItemCreatoroAuth {
         }).catch((e) => {
             this.commonActivity.handleError(e, `Failed to update WorkItem '${id}'`, this.failBuildIfFlawImporterBuildStepFails);
         });
+    }
+
+    /**
+     * Format mitigation annotation as HTML comment
+     * @param annotation - Annotation from Veracode API
+     * @returns Formatted mitigation comment
+     */
+    private formatMitigation(annotation: any): { mitigation_title: string; mitigation: string } {
+        const mitigationStatus = ['COMMENT', 'FP', 'APPROVED', 'REJECTED'];
+        let mitigation = '';
+
+        const created = annotation.created || 'Unknown';
+        const comment = annotation.comment || '';
+        const action = annotation.action || 'Unknown';
+        const user_name = annotation.user_name || 'Unknown';
+        const technique = annotation.technique || 'Unknown';
+        const specifics = annotation.specifics || 'Unknown';
+        const remaining_risk = annotation.remaining_risk || 'Unknown';
+        const verification = annotation.verification || 'Unknown';
+
+        const mitigation_title = `${created}:${user_name}:${action}`;
+        mitigation += mitigation_title + "<br>";
+        mitigation += "<b>User:</b> " + user_name + "<br>";
+        mitigation += "<b>Created:</b> " + created + "<br>";
+        mitigation += "<b>Action:</b> " + action + "<br>";
+
+        if (!mitigationStatus.includes(action)) {
+            // Check if TSRV fields contain meaningful data (not all "Unknown")
+            const hasTSRVData = technique !== 'Unknown' || specifics !== 'Unknown' || remaining_risk !== 'Unknown' || verification !== 'Unknown';
+
+            if (hasTSRVData) {
+                // Use TSRV format when we have meaningful data
+                mitigation += "<b>Technique:</b> " + technique + "<br/>";
+                mitigation += "<b>Specifics:</b> " + specifics + "<br>";
+                mitigation += "<b>Remaining Risk:</b> " + remaining_risk + "<br>";
+                mitigation += "<b>Verification:</b> " + verification + "<br>";
+            } else {
+                // Fall back to comment format when TSRV data is not available
+                mitigation += "<b>Comment:</b> " + comment + "<br>";
+            }
+        } else {
+            mitigation += "<b>Comment:</b> " + comment + "<br>";
+        }
+
+        return { mitigation_title, mitigation };
+    }
+
+    /**
+     * Process annotations to determine action (close, reopen, or update)
+     * @param annotations - Array of annotations from Veracode API
+     * @returns Action result with annotations
+     */
+    private processAnnotations(annotations: any[]): { action: string; annotations: any[]; mostRecent?: any } {
+        if (!annotations || annotations.length === 0) {
+            return { action: 'none', annotations: [] };
+        }
+
+        // Sort all annotations by created date (most recent first)
+        const sortedAnnotations = annotations.sort((a, b) => 
+            new Date(b.created).getTime() - new Date(a.created).getTime()
+        );
+
+        // Find the most recent APPROVED/APPROVE or REJECTED/REJECT annotation (these take precedence)
+        const mostRecentApprovedOrRejected = sortedAnnotations.find(ann => {
+            const action = (ann.action || '').toUpperCase();
+            return action === 'APPROVED' || action === 'APPROVE' || action === 'REJECTED' || action === 'REJECT';
+        });
+
+        // If we have an APPROVED/APPROVE or REJECTED/REJECT annotation, use it to determine the action
+        if (mostRecentApprovedOrRejected) {
+            const action = mostRecentApprovedOrRejected.action.toUpperCase();
+            if (action === 'APPROVED' || action === 'APPROVE') {
+                return {
+                    action: 'close',
+                    annotations: sortedAnnotations,
+                    mostRecent: mostRecentApprovedOrRejected
+                };
+            } else if (action === 'REJECTED' || action === 'REJECT') {
+                return {
+                    action: 'reopen',
+                    annotations: sortedAnnotations,
+                    mostRecent: mostRecentApprovedOrRejected
+                };
+            }
+        }
+
+        // If no APPROVED/APPROVE or REJECTED/REJECT annotations, use the most recent annotation for update
+        const mostRecent = sortedAnnotations[0];
+        return {
+            action: 'update',
+            annotations: sortedAnnotations,
+            mostRecent: mostRecent
+        };
+    }
+
+    /**
+     * Normalize HTML/text for robust duplicate detection
+     * @param text - Text to normalize
+     * @returns Normalized text
+     */
+    private normalizeTextForCompare(text: string): string {
+        if (!text) return '';
+        try {
+            const noHtml = String(text).replace(/<[^>]*>/g, ' ');
+            return noHtml.replace(/\s+/g, ' ').trim().toLowerCase();
+        } catch (_) {
+            return String(text).toLowerCase();
+        }
+    }
+
+    /**
+     * Fetch all previous System.History entries for a work item via Updates API
+     * @param workItemId - Work item ID
+     * @returns Array of history entries
+     */
+    private async fetchWorkItemHistoryEntries(workItemId: number): Promise<string[]> {
+        let allHistory: string[] = [];
+
+        try {
+            const updates = await this.vstsWI.getUpdates(workItemId);
+            if (updates) {
+                for (const upd of updates) {
+                    const fields = upd.fields || {};
+                    const hist = fields['System.History'];
+                    // Can appear as { newValue: 'text', oldValue: '...' } or direct string in some templates
+                    if (hist) {
+                        if (typeof hist === 'string') {
+                            allHistory.push(hist);
+                        } else if (typeof (hist as any).newValue === 'string') {
+                            allHistory.push((hist as any).newValue);
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            core.debug(`Error fetching work item history: ${error}`);
+        }
+
+        return allHistory;
+    }
+
+    /**
+     * Add mitigation comments to work item (avoiding duplicates)
+     * @param workItemId - Work item ID
+     * @param annotations - Array of annotations to add
+     */
+    private async addMitigationComments(workItemId: number, annotations: any[]): Promise<void> {
+        if (!annotations || annotations.length === 0) {
+            return;
+        }
+
+        try {
+            // Fetch existing history entries to check for duplicates
+            const historyEntries = await this.fetchWorkItemHistoryEntries(workItemId);
+            const existingSet = new Set(historyEntries.map(h => this.normalizeTextForCompare(h)));
+
+            // Sort annotations by date (oldest first) to add them in chronological order
+            const sortedAnnotations = annotations.sort((a, b) => 
+                new Date(a.created).getTime() - new Date(b.created).getTime()
+            );
+
+            for (const annot of sortedAnnotations) {
+                const { mitigation_title, mitigation } = this.formatMitigation(annot);
+                const key = this.normalizeTextForCompare(mitigation);
+
+                if (!existingSet.has(key)) {
+                    const payload: vss.JsonPatchDocument = [
+                        {
+                            op: vss.Operation.Add,
+                            path: '/fields/System.History',
+                            value: mitigation
+                        }
+                    ];
+
+                    try {
+                        await this.vstsWI.updateWorkItem(undefined, payload, workItemId, undefined, undefined);
+                        existingSet.add(key);
+                        core.debug(`Added mitigation "${mitigation_title}" to work item ${workItemId}`);
+                    } catch (error) {
+                        console.error(`Failed to add mitigation "${mitigation_title}" to work item ${workItemId}:`, error);
+                    }
+                } else {
+                    core.debug(`Skipping duplicate mitigation "${mitigation_title}" found in work item ${workItemId}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error adding mitigation comments to work item ${workItemId}:`, error);
+        }
     }
 
     /**
