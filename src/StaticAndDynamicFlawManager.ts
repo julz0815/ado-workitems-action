@@ -64,6 +64,197 @@ export class StaticAndDynamicFlawManager {
     }
 
     /**
+     * Process static findings from Veracode API (JSON format) directly
+     */
+    public captureDASTAndSASTFlawDataFromAPI(
+        findingsData: any,
+        workItemDetails: CommonData.workItemsDataDto,
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto
+    ): void {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: captureDASTAndSASTFlawDataFromAPI");
+        
+        const findings = findingsData._embedded?.findings || [];
+        console.log(`***Processing ${findings.length} static findings from API***`);
+        
+        // Group findings by severity
+        const findingsBySeverity: Map<number, any[]> = new Map();
+        
+        for (const finding of findings) {
+            const severity = finding.finding_details?.severity ?? 5;
+            if (!findingsBySeverity.has(severity)) {
+                findingsBySeverity.set(severity, []);
+            }
+            findingsBySeverity.get(severity)!.push(finding);
+        }
+        
+        // Process each severity level
+        for (const [severityLevel, severityFindings] of findingsBySeverity.entries()) {
+            const severityData = this.populateSeverityDataFromAPI(severityLevel, severityFindings, scanDetails, importParameters, workItemDetails);
+            if (severityData) {
+                workItemDetails.SeverityDTOList.push(severityData);
+            }
+        }
+    }
+
+    /**
+     * Populate severity data from API findings
+     */
+    private populateSeverityDataFromAPI(
+        severityLevel: number,
+        findings: any[],
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        workItemsCreationData: CommonData.workItemsDataDto
+    ): CommonData.SeverityDetailedReportDto | null {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: populateSeverityDataFromAPI");
+        
+        const severityDetails = new CommonData.SeverityDetailedReportDto();
+        severityDetails.Level = severityLevel;
+        console.log(`Current Severity : ${severityDetails.Level}`);
+        
+        // Group findings by category
+        const findingsByCategory: Map<string, any[]> = new Map();
+        
+        for (const finding of findings) {
+            const categoryName = finding.finding_details?.finding_category?.name || 'Unknown';
+            if (!findingsByCategory.has(categoryName)) {
+                findingsByCategory.set(categoryName, []);
+            }
+            findingsByCategory.get(categoryName)!.push(finding);
+        }
+        
+        // Process each category
+        for (const [categoryName, categoryFindings] of findingsByCategory.entries()) {
+            const categoryDetails = this.populateCategoryDataFromAPI(categoryName, categoryFindings, severityDetails, scanDetails, importParameters, workItemsCreationData);
+            if (categoryDetails) {
+                severityDetails.CategoryList.push(categoryDetails);
+            }
+        }
+        
+        return severityDetails.CategoryList.length > 0 ? severityDetails : null;
+    }
+
+    /**
+     * Populate category data from API findings
+     */
+    private populateCategoryDataFromAPI(
+        categoryName: string,
+        findings: any[],
+        sevData: CommonData.SeverityDetailedReportDto,
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        workItemsCreationData: CommonData.workItemsDataDto
+    ): CommonData.CategoryDetailedReportDto | null {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: populateCategoryDataFromAPI");
+        
+        const categoryDetails = new CommonData.CategoryDetailedReportDto();
+        categoryDetails.CategoryName = categoryName;
+        console.log(`      Current Category Name : ${categoryDetails.CategoryName}`);
+        
+        // Get CWE info from first finding (all findings in a category typically share the same CWE)
+        if (findings.length > 0 && findings[0].finding_details?.cwe) {
+            const cweInfo = findings[0].finding_details.cwe;
+            const cweDetails = new CommonData.cweDto();
+            cweDetails.CweId = cweInfo.id?.toString() || '';
+            cweDetails.CweName = cweInfo.name || '';
+            
+            // Process all flaws in this category
+            for (const finding of findings) {
+                const flawDetails = this.convertFindingToFlawDto(finding);
+                cweDetails.FlawList.push(flawDetails);
+                
+                // Generate work item data - pass raw finding to access annotations
+                const scanTypeAsTag = importParameters.ScanTypeTag ? "SAST" : "";
+                this.generateWorkItemDataFromAPI(flawDetails, finding, cweDetails, categoryDetails, sevData, importParameters, scanDetails, workItemsCreationData, scanTypeAsTag);
+            }
+            
+            categoryDetails.CweList.push(cweDetails);
+        }
+        
+        return categoryDetails.CweList.length > 0 ? categoryDetails : null;
+    }
+
+    /**
+     * Convert API finding JSON to FlawDto
+     */
+    private convertFindingToFlawDto(finding: any): CommonData.FlawDto {
+        const details = finding.finding_details || {};
+        const status = finding.finding_status || {};
+        
+        const flawDetails = new CommonData.FlawDto();
+        flawDetails.IssueID = finding.issue_id ? parseInt(finding.issue_id.toString()) : 0;
+        flawDetails.CategoryName = details.finding_category?.name || '';
+        flawDetails.FlawDescription = finding.description || '';
+        flawDetails.FlawAffectedbyPolicy = finding.violates_policy || false;
+        flawDetails.Line = details.file_line_number?.toString() || '';
+        flawDetails.SourceFile = details.file_path || '';
+        flawDetails.Module = details.module || '';
+        flawDetails.AttackVector = details.attack_vector || '';
+        flawDetails.FlawType = CommonData.Constants.flawType_Static; // API findings are static
+        
+        // Map mitigation status from annotations
+        let mitigationStatus = 'NEW';
+        let mitigationStatusDesc = 'New';
+        if (finding.annotations && finding.annotations.length > 0) {
+            // Sort by date, most recent first
+            const sortedAnnotations = finding.annotations.sort((a: any, b: any) => 
+                new Date(b.created).getTime() - new Date(a.created).getTime()
+            );
+            const latestAnnotation = sortedAnnotations[0];
+            mitigationStatus = latestAnnotation.action || 'NEW';
+            mitigationStatusDesc = this.getMitigationStatusDescription(latestAnnotation.action);
+        } else if (status.resolution_status) {
+            mitigationStatus = status.resolution_status;
+            mitigationStatusDesc = this.getMitigationStatusDescription(status.resolution_status);
+        }
+        
+        flawDetails.MitigationStatus = mitigationStatus;
+        flawDetails.MitigationStatusDescription = mitigationStatusDesc;
+        flawDetails.RemediationStatus = status.resolution || 'UNRESOLVED';
+        
+        // Convert annotations to comments
+        flawDetails.CommentsList = [];
+        if (finding.annotations && finding.annotations.length > 0) {
+            for (const annotation of finding.annotations) {
+                const comment = new CommonData.CommentsDTO();
+                comment.Date = annotation.created || '';
+                comment.Comment = `${annotation.created}: ${annotation.user_name}: ${annotation.action} <br> ${annotation.comment || ''}`;
+                flawDetails.CommentsList.push(comment);
+            }
+        }
+        
+        return flawDetails;
+    }
+
+    /**
+     * Store raw annotations in FlawDto for later processing
+     * This is a helper to preserve annotations for mitigation handling
+     */
+    private storeAnnotationsInFlawDto(flawDetails: CommonData.FlawDto, finding: any): void {
+        // Store raw annotations - we'll access them via the finding object later
+        // For now, we'll pass them through the WorkItemDto
+    }
+
+    /**
+     * Get mitigation status description from action
+     */
+    private getMitigationStatusDescription(action: string): string {
+        const statusMap: Record<string, string> = {
+            'APPROVED': 'Mitigation Approved',
+            'REJECTED': 'Mitigation Rejected',
+            'PROPOSED': 'Mitigation Proposed',
+            'COMMENT': 'Comment',
+            'FP': 'False Positive',
+            'APPDESIGN': 'Application Design',
+            'OSENV': 'Operating System Environment',
+            'NETENV': 'Network Environment',
+            'LIBRARY': 'Library'
+        };
+        return statusMap[action] || action;
+    }
+
+    /**
      * Extract xml based severity data and map same to  DTO
      * @param {any} severityListItem - xml based severity data. 
      * @param {CommonData.ScanDto} scanDetails - veracode scan related details.
@@ -336,7 +527,77 @@ export class StaticAndDynamicFlawManager {
     }
 
     /**
-     * Generate work Item data based on detailed report
+     * Generate work Item data from API findings (with annotations support)
+     *  @param {CommonData.FlawDto} flawData - veracode flaw related data
+     *  @param {any} rawFinding - raw finding object from API (for annotations)
+     *  @param {CommonData.cweDto} cweData - veracode flaw cwe related data
+     *  @param {CommonData.CategoryDetailedReportDto} catData - veracode flaw category related data
+     *  @param {CommonData.SeverityDetailedReportDto} sevData - veracode flaw severity related data
+     *  @param {CommonData.FlawImporterParametersDto} importParameters - inputs provided in VSTS UI
+     *  @param {CommonData.ScanDto} scanDetails - veracode scan details
+     *  @param {CommonData.workItemsDataDto} workItemsCreationData - VSTS Work Items creation related data
+     *  @param {string} scanTypeAsTag - scan type tag value
+     */
+    private generateWorkItemDataFromAPI(
+        flawData: CommonData.FlawDto,
+        rawFinding: any,
+        cweData: CommonData.cweDto,
+        catData: CommonData.CategoryDetailedReportDto,
+        sevData: CommonData.SeverityDetailedReportDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        scanDetails: CommonData.ScanDto,
+        workItemsCreationData: CommonData.workItemsDataDto,
+        scanTypeAsTag: string) {
+
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: generateWorkItemDataFromAPI");
+        let workItem = new CommonData.WorkItemDto();
+        workItem.FlawStatus = flawData.RemediationStatus;
+        workItem.Severity = sevData.Level;
+        workItem.ScanTypeTag = scanTypeAsTag;
+        workItem.FlawComments = this.composeWorkItemComments(flawData);
+        workItem.FixByDate = importParameters.DueDateTag && flawData.GracePeriodExpires ? this.formatDueDate(flawData.GracePeriodExpires) : "";
+        
+        // Store annotations and resolution status for mitigation handling
+        if (rawFinding) {
+            workItem.Annotations = rawFinding.annotations || [];
+            workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
+        }
+        
+        this.adjustWorkItemDataByType(flawData, cweData, workItem, catData, scanDetails, importParameters);
+
+        //TypeScript 'switch case' has issues with numbers and enums.
+        //Hence, the multiple 'if else'. However, this seems to be fixed with 
+        //TypeScript 2.1. Here we're using TypeScript 1.8.10
+        //Ref: https://stackoverflow.com/questions/27747437/typescript-enum-switch-not-working
+        if (sevData.Level == 0) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Low; //Information
+        }
+        else if (sevData.Level == 1) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Low; //Very Low
+        }
+        else if (sevData.Level == 2) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Low; //Low
+        }
+        else if (sevData.Level == 3) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Medium; //Medium
+        }
+        else if (sevData.Level == 4) {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_High; //High
+        }
+        else {
+            workItem.SeverityValue = CommonData.Constants.bug_severity_Critical; //Very High
+        }
+
+        this.manipulateWorkItemTags(cweData, workItem, scanDetails, importParameters, workItemsCreationData);
+        workItemsCreationData.ImportType = importParameters.ImportType;
+        // Filter flaws according to user preferences
+        workItem.IsOpenAccordingtoMitigationStatus = true;
+        workItem.AffectedbyPolicy = flawData.FlawAffectedbyPolicy;
+        this.commonHelper.filterWorkItemsByFlawType(flawData, workItem, workItemsCreationData, importParameters);
+    }
+
+    /**
+     * Generate work Item data based on detailed report (XML-based, original method)
      *  @param {CommonData.FlawDto} flawData - veracode flaw related data
      *  @param {CommonData.cweDto} cweData - veracode flaw cwe related data
      *  @param {CommonData.CategoryDetailedReportDto} catData - veracode flaw category related data

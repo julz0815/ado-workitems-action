@@ -13,7 +13,7 @@ import * as q from 'q';
 import * as CommonData from './Common';
 import { FlawManager } from './FlawManager';
 import { InputsManager } from './InputsManager';
-import * as veracodeBridgeConnector from './VeracodeBridge';
+import { VeracodeAPIClient } from './VeracodeAPIClient';
 import * as WICreator from './WorkItemCreator';
 
 /**
@@ -21,7 +21,7 @@ import * as WICreator from './WorkItemCreator';
  */
 export class FlawImporter {
     private wICoA: WICreator.WorkItemCreatoroAuth | undefined;
-    private veracodeBridgeData: veracodeBridgeConnector.VeracodeBridge | undefined;
+    private veracodeAPIClient: VeracodeAPIClient | undefined;
     private commonHelper: CommonData.CommonHelper;
     private inputsManager: InputsManager;
     private flawManager: FlawManager;
@@ -158,11 +158,21 @@ export class FlawImporter {
         importParameters: CommonData.FlawImporterParametersDto): Promise<CommonData.workItemsDataDto> {
 
         core.debug("Class Name: FlawImporter, Method Name: retrieveWorkItemsData");
-        importParameters.ApiAction = CommonData.Constants.apiAction_GetDetailedReport;
         try {
-            if (this.veracodeBridgeData) {
-                let reportDetails = await this.veracodeBridgeData.downloadAndReadDetailedReportData(scanDetails.BuildId, importParameters);
-                return await this.flawManager.manageFlaws(scanDetails, importParameters, reportDetails);
+            if (this.veracodeAPIClient) {
+                // Get findings data from API
+                const findingsData = await this.veracodeAPIClient.getFindingsData(scanDetails, importParameters);
+                
+                if (!findingsData) {
+                    core.warning("No findings data retrieved from API");
+                    return new CommonData.workItemsDataDto();
+                }
+                
+                // Process JSON findings directly (no XML conversion needed)
+                core.info("Findings retrieved from API. Processing JSON findings directly...");
+                
+                // Use FlawManager's new method that processes JSON directly
+                return await this.flawManager.manageFlawsFromAPI(scanDetails, importParameters, findingsData);
             }
             return new CommonData.workItemsDataDto();
         } catch (error) {
@@ -180,7 +190,7 @@ export class FlawImporter {
         importParameters: CommonData.FlawImporterParametersDto): Promise<CommonData.ScanDto> {
 
         core.debug("Class Name: FlawImporter, Method Name: obtainPrerequisites");
-        this.veracodeBridgeData = new veracodeBridgeConnector.VeracodeBridge(importParameters);
+        this.veracodeAPIClient = new VeracodeAPIClient(importParameters);
         let scanDetails = new CommonData.ScanDto();
 
         try {
@@ -190,28 +200,24 @@ export class FlawImporter {
             if (importParameters.VeracodeAppProfile.length > CommonData.Constants.MaxCharactersAllowedInApplicationName) {
                 this.commonHelper.handleError(null, CommonData.Constants.ApplicationNameTooLong, importParameters.FailBuildIfFlawImporterBuildStepFails);
             }
-            if (this.veracodeBridgeData) {
-                scanDetails.AnalysisCenterUrl = await this.veracodeBridgeData.getAnalysisCenterUrl(importParameters);
-                importParameters.ApiAction = CommonData.Constants.apiAction_GetApplist;
-                await this.veracodeBridgeData.getAppInfo(scanDetails, importParameters);
-                if (!scanDetails.Appid) {
+            if (this.veracodeAPIClient) {
+                // Use API client to get app info
+                const appInfoResult = await this.veracodeAPIClient.getAppInfo(scanDetails, importParameters);
+                if (!appInfoResult || !appInfoResult.Appid) {
                     return scanDetails;
                 }
-                let latestScan = new CommonData.ScanDto();
+                scanDetails = appInfoResult;
+                
+                // Validate sandbox name length if provided
                 if (importParameters.SandboxName && importParameters.SandboxName.length > CommonData.Constants.MaxCharactersAllowedInSandboxName) {
-                    this.commonHelper.setTaskFailure(CommonData.Constants.SandboxNameTooLong)
+                    this.commonHelper.setTaskFailure(CommonData.Constants.SandboxNameTooLong);
                 }
-                if (!importParameters.SandboxId && importParameters.SandboxName) {
-                    importParameters.ApiAction = CommonData.Constants.apiAction_GetSandBoxlist;
-                    await this.veracodeBridgeData.getSandboxInfo(scanDetails.Appid.toString(), importParameters);
+                
+                // Get latest build info (for API, this just sets the build ID to the app GUID)
+                const latestScan = await this.veracodeAPIClient.getLatestBuild(scanDetails, importParameters);
+                if (latestScan) {
+                    return latestScan;
                 }
-                if ((importParameters.SandboxId && importParameters.SandboxName) || !importParameters.SandboxName) {
-                    latestScan = await this.veracodeBridgeData.getLatestBuild(scanDetails, importParameters);
-                } else {
-                    this.commonHelper.handleError(null, "Invalid sandbox", this.failBuildIfFlawImporterBuildStepFails);
-                }
-                latestScan.AnalysisCenterUrl = scanDetails.AnalysisCenterUrl;
-                return latestScan;
             }
             return scanDetails;
 

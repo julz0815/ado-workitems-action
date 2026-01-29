@@ -48,6 +48,151 @@ export class SCAFlawManager {
     }
 
     /**
+     * Process SCA findings from Veracode API (JSON format) directly
+     */
+    public captureSCAFlawDataFromAPI(
+        findingsData: any,
+        workItemDetails: CommonData.workItemsDataDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        scanDetails: CommonData.ScanDto
+    ): void {
+        core.debug("Class Name: SCAFlawManager, Method Name: captureSCAFlawDataFromAPI");
+        
+        const findings = findingsData._embedded?.findings || [];
+        console.log(`***Processing ${findings.length} SCA findings from API***`);
+        
+        // Group findings by component (using component_filename as the key)
+        const componentsMap: Map<string, any[]> = new Map();
+        
+        for (const finding of findings) {
+            // Use component_filename as the key to group findings by component
+            const componentKey = finding.finding_details?.component_filename || 'unknown';
+            if (!componentsMap.has(componentKey)) {
+                componentsMap.set(componentKey, []);
+            }
+            componentsMap.get(componentKey)!.push(finding);
+        }
+        
+        // Process each component
+        for (const [componentKey, componentFindings] of componentsMap.entries()) {
+            const vulnerableComponent = this.populateComponentDataFromAPI({}, componentFindings);
+            
+            if (vulnerableComponent && vulnerableComponent.Vulnerabilities.length > 0) {
+                console.log(`Vulnerabilities count: ${vulnerableComponent.Vulnerabilities.length}`);
+                // Match vulnerabilities with their raw findings
+                for (let i = 0; i < vulnerableComponent.Vulnerabilities.length; i++) {
+                    const vulnerability = vulnerableComponent.Vulnerabilities[i];
+                    const rawFinding = componentFindings[i]; // Get corresponding raw finding
+                    
+                    let flawData = new CommonData.FlawDto();
+                    if (vulnerability.IsMitigation) {
+                        flawData.MitigationStatus = CommonData.Constants.mitigation_Status_Accepted;
+                    } else {
+                        flawData.MitigationStatus = CommonData.Constants.mitigation_Status_None;
+                    }
+                    flawData.FlawAffectedbyPolicy = vulnerability.DoesAffectPolicy;
+                    vulnerability.FilePathList = vulnerableComponent.FilePathsList;
+                    
+                    // Create work item with annotations from raw finding
+                    const workItem = this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion);
+                    
+                    // Store annotations and resolution status for mitigation handling
+                    if (rawFinding) {
+                        workItem.Annotations = rawFinding.annotations || [];
+                        workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
+                    }
+                    
+                    this.commonHelper.filterWorkItemsByFlawType(
+                        flawData,
+                        workItem,
+                        workItemDetails,
+                        importParameters
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * Populate component data from API findings
+     */
+    private populateComponentDataFromAPI(component: any, vulnerabilities: any[]): CommonData.VulnerableComponentDetailedReportDto {
+        core.debug("Class Name: SCAFlawManager, Method Name: populateComponentDataFromAPI");
+        
+        const vulnerableComponent = new CommonData.VulnerableComponentDetailedReportDto();
+        
+        // Get component info from the first vulnerability's finding_details
+        // The API structure has component info in finding_details, not a separate component object
+        if (vulnerabilities.length > 0) {
+            const firstFinding = vulnerabilities[0];
+            const details = firstFinding.finding_details || {};
+            
+            // Component filename is the library/component name
+            vulnerableComponent.Library = details.component_filename || '';
+            vulnerableComponent.ComponentId = details.component_id || '';
+            vulnerableComponent.Version = details.version || '';
+            
+            // Extract file paths from component_path
+            vulnerableComponent.FilePathsList = details.component_path || [];
+        } else {
+            // Fallback if no vulnerabilities
+            vulnerableComponent.Library = '';
+            vulnerableComponent.ComponentId = '';
+            vulnerableComponent.Version = '';
+            vulnerableComponent.FilePathsList = [];
+        }
+        
+        // Convert vulnerabilities
+        vulnerableComponent.Vulnerabilities = [];
+        for (const vuln of vulnerabilities) {
+            const vulnerability = this.convertVulnerabilityFromAPI(vuln);
+            vulnerableComponent.Vulnerabilities.push(vulnerability);
+        }
+        
+        return vulnerableComponent;
+    }
+
+    /**
+     * Convert API vulnerability JSON to ComponentVulnerability
+     */
+    private convertVulnerabilityFromAPI(vulnerability: any): CommonData.ComponentVulnerability {
+        const details = vulnerability.finding_details || {};
+        const status = vulnerability.finding_status || {};
+        
+        const vuln = new CommonData.ComponentVulnerability();
+        // CVE is an object with a 'name' property
+        vuln.CveId = details.cve?.name || '';
+        vuln.CveSummary = vulnerability.description || '';
+        vuln.CweId = details.cwe?.id?.toString() || '';
+        // Severity can be from cve.severity or finding_details.severity
+        vuln.Severity = details.cve?.severity?.toString() || details.severity?.toString() || '5';
+        vuln.FirstFoundDate = status.first_found_date || '';
+        vuln.DoesAffectPolicy = vulnerability.violates_policy || false;
+        
+        // Determine if mitigated based on annotations
+        vuln.IsMitigation = false;
+        vuln.MitigationType = '';
+        if (vulnerability.annotations && vulnerability.annotations.length > 0) {
+            const sortedAnnotations = vulnerability.annotations.sort((a: any, b: any) => 
+                new Date(b.created).getTime() - new Date(a.created).getTime()
+            );
+            const latestAnnotation = sortedAnnotations[0];
+            if (latestAnnotation.action === 'APPROVED') {
+                vuln.IsMitigation = true;
+                vuln.MitigationType = latestAnnotation.action;
+            }
+        }
+        
+        if (vuln.IsMitigation) {
+            vuln.MitigationCommentOnFlawClosure = `${CommonData.Constants.SCAMitigationCommentPrefix} ${vuln.MitigationType}`;
+        } else {
+            vuln.MitigationCommentOnFlawClosure = "";
+        }
+        
+        return vuln;
+    }
+
+    /**
      * Filter vulnerability from detailed report by flaw type and preapare flaws for work item creation
      * @param vulnerableComponentsList Vulnerability component list
      * @param vulnerabilityIndex Current vulnerability index
@@ -178,13 +323,23 @@ export class SCAFlawManager {
 
         core.debug("Class Name: SCAFlawManager, Method Name: vulnerabilityToWorkItem");
         let workItem = new CommonData.WorkItemDto();
-        workItem.Title = `Component: ${vulnerableComponent.Library}-${vulnerableComponent.Version} has CVE Vulnerability ${vulnerability.CveId} detected in Application: ${importParameters.VeracodeAppProfile}`;
+        
+        // Ensure all values are strings to avoid "[object Object]" in title
+        const library = String(vulnerableComponent.Library || '').trim();
+        const version = String(vulnerableComponent.Version || '').trim();
+        const cveId = String(vulnerability.CveId || '').trim();
+        const appProfile = String(importParameters.VeracodeAppProfile || '').trim();
+        
+        workItem.Title = `Component: ${library}${version ? '-' + version : ''} has CVE Vulnerability ${cveId || 'Unknown'} detected in Application: ${appProfile}`;
         workItem.Html = this.generateWorkItemBody(vulnerability, scanDetails, vulnerableComponent.ComponentId);
+        
+        // Ensure severity is always set - default to 5 (Critical) if not available
         let severity = Number(vulnerability.Severity);
-        if (severity && !Number.isNaN(severity)) {
-            workItem.SeverityValue = this.getSeverityAsString(severity);
-            workItem.Severity = severity;
+        if (isNaN(severity) || severity < 0 || severity > 5) {
+            severity = 5; // Default to Critical if invalid
         }
+        workItem.SeverityValue = this.getSeverityAsString(severity);
+        workItem.Severity = severity;
         workItem.IsOpenAccordingtoMitigationStatus = !vulnerability.IsMitigation;
         workItem.AffectedbyPolicy = vulnerability.DoesAffectPolicy;
         workItem.FlawComments = vulnerability.MitigationCommentOnFlawClosure;
@@ -208,35 +363,48 @@ export class SCAFlawManager {
     private addTags(workItem: CommonData.WorkItemDto, importParameters: CommonData.FlawImporterParametersDto, scanDetails: CommonData.ScanDto, cveId: string, buildVersion: string) {
         
         core.debug("Class Name: SCAFlawManager, Method Name: addTags");
-        //Add CVE As Tag
+        //Add CVE As Tag - ensure it's a string
         if (importParameters.AddCveTag && cveId) {
-            core.debug(`Value for cwe tag identified. Value is ${cveId}`);
-            workItem.Tags.push(cveId);
+            const cveTag = String(cveId).trim();
+            if (cveTag) {
+                core.debug(`Value for cve tag identified. Value is ${cveTag}`);
+                workItem.Tags.push(cveTag);
+            }
         }
         //Add Custom Tag
         if (importParameters.AddCustomTag) {
-            core.debug(`Value for Custom tag identified. Value is ${importParameters.AddCustomTag}`);
-            workItem.Tags.push(importParameters.AddCustomTag);
+            const customTag = String(importParameters.AddCustomTag).trim();
+            if (customTag) {
+                core.debug(`Value for Custom tag identified. Value is ${customTag}`);
+                workItem.Tags.push(customTag);
+            }
         }
-        //Add build Id as Tag
-        if (importParameters.FoundInBuild) {
-            core.debug(`Value for build is tag identified. Value is ${scanDetails.BuildId}`);
-            workItem.Tags.push(`Build_${scanDetails.BuildId}`);
+        //Add build Id as Tag - ensure BuildId is a string
+        if (importParameters.FoundInBuild && scanDetails.BuildId) {
+            const buildTag = `Build_${String(scanDetails.BuildId)}`;
+            core.debug(`Value for build is tag identified. Value is ${buildTag}`);
+            workItem.Tags.push(buildTag);
         }
         //Add scan name as Tag
         if (importParameters.AddScanNameAsATag && buildVersion) {
-            core.debug(`Value for scan name tag identified. Value is ${buildVersion}`);
-            workItem.Tags.push(buildVersion);
+            const scanTag = String(buildVersion).trim();
+            if (scanTag) {
+                core.debug(`Value for scan name tag identified. Value is ${scanTag}`);
+                workItem.Tags.push(scanTag);
+            }
         }
         //Scan Type as Tag
         if (importParameters.ScanTypeTag) {
             core.debug(`Value for scan type tag identified. Value is SCA`);
             workItem.Tags.push("SCA");
         }
-        //Severity as Tag
-        if (importParameters.SeverityTag) {
-            core.debug(`Value for severity tag identified. Value is ${workItem.SeverityValue}`);
-            workItem.Tags.push(workItem.SeverityValue);
+        //Severity as Tag - ensure SeverityValue is a string
+        if (importParameters.SeverityTag && workItem.SeverityValue) {
+            const severityTag = String(workItem.SeverityValue).trim();
+            if (severityTag) {
+                core.debug(`Value for severity tag identified. Value is ${severityTag}`);
+                workItem.Tags.push(severityTag);
+            }
         }
     }
 

@@ -45,6 +45,18 @@ inputs:
     description: 'Work Item Type'
     required: true
     default: 'Bug'
+  open-state:
+    description: 'State to use when opening/creating work items'
+    required: false
+    default: 'New'
+  close-state:
+    description: 'State to use when closing work items'
+    required: false
+    default: 'Closed'
+  reopen-state:
+    description: 'State to use when reopening work items'
+    required: false
+    default: 'New'
   area-path:
     description: 'Area Path'
     required: true

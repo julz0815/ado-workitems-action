@@ -4,64 +4,23 @@ This GitHub Action imports security flaws from Veracode Platform and creates wor
 
 ## Features
 
-- Import flaws from Veracode scans (Static, Dynamic, and SCA)
-- Create work items in Azure DevOps
-- Support for multiple scan types and import filters
+- Import flaws from Veracode scans (Static Analysis and SCA)
+- Create, update, close, and reopen work items in Azure DevOps based on mitigation status
+- Automatic mitigation comment synchronization
+- Support for configurable work item states (open, close, reopen)
 - Configurable work item types, tags, and custom fields
 
-## Usage
+## Current Implementation Status
 
-```yaml
-name: Import Veracode Flaws
+**Supported Scan Types:**
+- Static Analysis
+- Software Composition Analysis (SCA)
+- Static Analysis and SCA
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'  # Daily at midnight
+**Supported Import Types:**
+- All Unmitigated Flaws Violating Policy
 
-jobs:
-  import-flaws:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Import Veracode Flaws to ADO
-        uses: ./
-        with:
-          # Azure DevOps Connection
-          ado-token: ${{ secrets.ADO_PAT }}
-          ado-org: 'your-org'
-          ado-project: 'your-project'
-          
-          # Veracode API Credentials
-          veracode-api-id: ${{ secrets.VERACODE_API_ID }}
-          veracode-api-key: ${{ secrets.VERACODE_API_KEY }}
-          
-          # Flaw Source
-          veracode-app-profile: 'MyApplication'
-          sandbox-name: ''  # Optional
-          
-          # Work Item Settings
-          scan-type: 'Dynamic and Static Analysis'
-          import-type: 'All Unmitigated Flaws Violating Policy'
-          work-item-type: 'Bug'
-          area-path: 'your-project'
-          overwrite-area-path: 'true'
-          iteration-path: 'your-project'
-          overwrite-iteration-path: 'true'
-          flaw-import-limit: '1000'
-          
-          # Tags (all optional, default: true)
-          add-cwe-as-tag: 'true'
-          add-cve-as-tag: 'true'
-          add-build-id-as-tag: 'true'
-          add-scan-name-as-tag: 'true'
-          add-scan-type-tag: 'true'
-          add-severity-tag: 'true'
-          add-due-date-tag: 'true'
-          
-          # Advanced
-          fail-on-error: 'false'
-          debug: 'false'
-```
+**Note:** Other import types and scan types will be implemented in future releases.
 
 ## Inputs
 
@@ -79,14 +38,24 @@ jobs:
 - `sandbox-name` (optional): Sandbox Name
 
 ### Work Item Settings
-- `scan-type` (required): Scan Type - Options: 'Dynamic and Static Analysis', 'Software Composition Analysis (SCA)', 'Static Analysis and SCA', 'Dynamic, Static, and SCA'
-- `import-type` (required): Import Type - Options: 'All Flaws', 'All Unmitigated Flaws', 'All Flaws Violating Policy', 'All Unmitigated Flaws Violating Policy'
+- `scan-type` (required): Scan Type - Options: 'Static Analysis', 'Software Composition Analysis (SCA)', 'Static Analysis and SCA'
+- `import-type` (required): Import Type - Currently supported: 'All Unmitigated Flaws Violating Policy' (other import types will follow)
 - `work-item-type` (required): Work Item Type - Options: 'Bug', 'Issue', 'Task', 'Epic', 'Feature', 'Test Case', 'User Story'
 - `area-path` (required): Area Path
 - `overwrite-area-path` (required): Overwrite Area Path in Work Items on Import (true/false)
 - `iteration-path` (required): Iteration Path
 - `overwrite-iteration-path` (required): Overwrite Iteration Path in Work Items on Import (true/false)
 - `flaw-import-limit` (required): Maximum number of flaws to import (default: 1000)
+
+### Work Item State Management
+- `open-state` (required): State for newly created or reopened work items (default: 'New')
+- `close-state` (required): State for closed work items (default: 'Closed')
+- `reopen-state` (required): State for reopened work items (default: 'New')
+
+**Note:** The action automatically manages work item states based on mitigation status:
+- **Static Findings**: Work items are closed when `resolution_status` is 'APPROVED', and reopened when not mitigated
+- **SCA Findings**: Work items are closed when annotation action is 'APPROVED', and reopened for all other statuses (including 'REJECTED')
+- Mitigation comments are automatically added to work items and synchronized to avoid duplicates
 
 ### Tags
 - `add-cwe-as-tag`: Add CWE as a Tag (default: true)
@@ -106,26 +75,80 @@ jobs:
 - `fail-on-error`: Fail action if flaw importer fails (default: false)
 - `debug`: Enable debug logging (default: false)
 
-## Requirements
+## Usage Example
 
-- Java must be installed and available in PATH
-- Veracode Java API JAR file (included in the action)
+```yaml
+name: Import Veracode Flaws
 
-## Building
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
 
-The action is bundled into a single `dist/index.js` file that includes all dependencies.
-
-```bash
-npm install
-npm run bundle
+jobs:
+  import-flaws:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Import Veracode Flaws to ADO
+        uses: julz0815/ado-workitems-action@api_and_close
+        with:
+          # Azure DevOps Connection
+          ado-token: ${{ secrets.ADO_PAT }}
+          ado-org: 'your-org'
+          ado-project: 'your-project'
+          
+          # Veracode API Credentials
+          veracode-api-id: ${{ secrets.VERACODE_API_ID }}
+          veracode-api-key: ${{ secrets.VERACODE_API_KEY }}
+          
+          # Flaw Source
+          veracode-app-profile: 'MyApplication'
+          sandbox-name: ''  # Optional
+          
+          # Work Item Settings
+          scan-type: 'Static Analysis and SCA'
+          import-type: 'All Unmitigated Flaws Violating Policy'
+          work-item-type: 'Bug'
+          area-path: 'your-project'
+          overwrite-area-path: 'true'
+          iteration-path: 'your-project'
+          overwrite-iteration-path: 'true'
+          flaw-import-limit: '1000'
+          
+          # Work Item State Management
+          open-state: 'New'
+          close-state: 'Closed'
+          reopen-state: 'New'
+          
+          # Tags (all optional, default: true)
+          add-cwe-as-tag: 'true'
+          add-cve-as-tag: 'true'
+          add-build-id-as-tag: 'true'
+          add-scan-name-as-tag: 'true'
+          add-scan-type-tag: 'true'
+          add-severity-tag: 'true'
+          add-due-date-tag: 'true'
+          
+          # Advanced
+          fail-on-error: 'false'
+          debug: 'false'
 ```
 
-This will:
-1. Compile TypeScript source files
-2. Bundle all dependencies into a single `dist/index.js` file using `@vercel/ncc`
-3. Generate source maps and license information
+## Mitigation Handling
 
-**Note:** The bundled `dist/index.js` file must be committed to the repository for the action to work in GitHub Actions.
+The action automatically handles work item state changes based on mitigation status from the Veracode Platform:
+
+- **Mitigation Comments**: All mitigation annotations are automatically added as comments to work items, avoiding duplicates
+- **State Synchronization**: Work item states are synchronized with Veracode mitigation status:
+  - Approved mitigations → Work items are closed
+  - Rejected or other mitigations → Work items are reopened
+- **Comment Format**: Mitigation comments include user, date, action, and details (TSRV format when available)
+
+## Requirements
+
+- Node.js 20.0.0 or higher
+- Veracode API credentials (API ID and API Key)
+- Azure DevOps Personal Access Token with Work Items Read & Write permissions
 
 ## License
 

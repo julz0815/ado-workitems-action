@@ -68,6 +68,62 @@ export class FlawManager {
     }
 
     /**
+     * Process findings from Veracode API (JSON format) directly
+     * This is more efficient than converting JSON to XML and back
+     */
+    async manageFlawsFromAPI(
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        findingsData: { staticFindings?: any; scaFindings?: any }
+    ): Promise<CommonData.workItemsDataDto> {
+        core.debug("Class Name: FlawManager, Method Name: manageFlawsFromAPI");
+        
+        const workItemDetails = new CommonData.workItemsDataDto();
+        workItemDetails.Appid = scanDetails.Appid;
+        workItemDetails.BuildID = scanDetails.BuildId;
+        workItemDetails.OverwriteAreaPathInWorkItemsOnImport = importParameters.OverwriteAreaPathInWorkItemsOnImport;
+        workItemDetails.OverwriteIterationPathInWorkItemsOnImport = importParameters.OverwriteIterationPathInWorkItemsOnImport;
+        workItemDetails.ImportType = importParameters.ImportType;
+        workItemDetails.Area = importParameters.AreaPath;
+        workItemDetails.IterationPath = importParameters.IterationPath;
+        workItemDetails.FlawImportLimit = importParameters.FlawImportLimit;
+        workItemDetails.BuildVersion = "1.0"; // API doesn't provide version, use default
+        
+        console.log("Start Mapping API Findings to DTO");
+        
+        try {
+            const scanType = importParameters.ScanType;
+            
+            // Process static findings
+            if ((scanType === 'Static Analysis' || scanType === 'Static Analysis and SCA') && findingsData.staticFindings) {
+                this.staticAndDynamicFlawManager = new StaticAndDynamicFlawManager();
+                this.staticAndDynamicFlawManager.captureDASTAndSASTFlawDataFromAPI(
+                    findingsData.staticFindings,
+                    workItemDetails,
+                    scanDetails,
+                    importParameters
+                );
+            }
+            
+            // Process SCA findings
+            if ((scanType === 'Software Composition Analysis (SCA)' || scanType === 'Static Analysis and SCA') && findingsData.scaFindings) {
+                this.sCAFlawManager = new SCAFlawManager();
+                this.sCAFlawManager.captureSCAFlawDataFromAPI(
+                    findingsData.scaFindings,
+                    workItemDetails,
+                    importParameters,
+                    scanDetails
+                );
+            }
+            
+            return workItemDetails;
+        } catch (error) {
+            core.error(`Error processing API findings: ${error}`);
+            throw error;
+        }
+    }
+
+    /**
      * Makes necessary adjustments to support SCA flaw importing
      * @param scanDetails - scan details
      * @param xmlDoc - detailed report data

@@ -1,3 +1,5 @@
 node_modules/*
 local-test/*
 veracode-azure-devops-extension/*
+.DS_Store
+veracode-flaws-to-issues/*
