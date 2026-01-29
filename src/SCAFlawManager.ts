@@ -48,6 +48,122 @@ export class SCAFlawManager {
     }
 
     /**
+     * Process SCA findings from Veracode API (JSON format) directly
+     */
+    public captureSCAFlawDataFromAPI(
+        findingsData: any,
+        workItemDetails: CommonData.workItemsDataDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        scanDetails: CommonData.ScanDto
+    ): void {
+        core.debug("Class Name: SCAFlawManager, Method Name: captureSCAFlawDataFromAPI");
+        
+        const findings = findingsData._embedded?.findings || [];
+        console.log(`***Processing ${findings.length} SCA findings from API***`);
+        
+        // Group findings by component
+        const componentsMap: Map<string, any> = new Map();
+        
+        for (const finding of findings) {
+            const componentId = finding.finding_details?.component_id || 'unknown';
+            if (!componentsMap.has(componentId)) {
+                componentsMap.set(componentId, {
+                    component: finding.finding_details?.component || {},
+                    vulnerabilities: []
+                });
+            }
+            componentsMap.get(componentId)!.vulnerabilities.push(finding);
+        }
+        
+        // Process each component
+        for (const [componentId, componentData] of componentsMap.entries()) {
+            const vulnerableComponent = this.populateComponentDataFromAPI(componentData.component, componentData.vulnerabilities);
+            
+            if (vulnerableComponent && vulnerableComponent.Vulnerabilities.length > 0) {
+                console.log(`Vulnerabilities count: ${vulnerableComponent.Vulnerabilities.length}`);
+                vulnerableComponent.Vulnerabilities.forEach(vulnerability => {
+                    let flawData = new CommonData.FlawDto();
+                    if (vulnerability.IsMitigation) {
+                        flawData.MitigationStatus = CommonData.Constants.mitigation_Status_Accepted;
+                    } else {
+                        flawData.MitigationStatus = CommonData.Constants.mitigation_Status_None;
+                    }
+                    flawData.FlawAffectedbyPolicy = vulnerability.DoesAffectPolicy;
+                    vulnerability.FilePathList = vulnerableComponent.FilePathsList;
+                    this.commonHelper.filterWorkItemsByFlawType(
+                        flawData,
+                        this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion),
+                        workItemDetails,
+                        importParameters
+                    );
+                });
+            }
+        }
+    }
+
+    /**
+     * Populate component data from API findings
+     */
+    private populateComponentDataFromAPI(component: any, vulnerabilities: any[]): CommonData.VulnerableComponentDetailedReportDto {
+        core.debug("Class Name: SCAFlawManager, Method Name: populateComponentDataFromAPI");
+        
+        const vulnerableComponent = new CommonData.VulnerableComponentDetailedReportDto();
+        vulnerableComponent.Library = component.library || '';
+        vulnerableComponent.ComponentId = component.component_id || '';
+        vulnerableComponent.Version = component.version || '';
+        
+        // Extract file paths
+        vulnerableComponent.FilePathsList = component.file_paths || [];
+        
+        // Convert vulnerabilities
+        vulnerableComponent.Vulnerabilities = [];
+        for (const vuln of vulnerabilities) {
+            const vulnerability = this.convertVulnerabilityFromAPI(vuln);
+            vulnerableComponent.Vulnerabilities.push(vulnerability);
+        }
+        
+        return vulnerableComponent;
+    }
+
+    /**
+     * Convert API vulnerability JSON to ComponentVulnerability
+     */
+    private convertVulnerabilityFromAPI(vulnerability: any): CommonData.ComponentVulnerability {
+        const details = vulnerability.finding_details || {};
+        const status = vulnerability.finding_status || {};
+        
+        const vuln = new CommonData.ComponentVulnerability();
+        vuln.CveId = details.cve || '';
+        vuln.CveSummary = vulnerability.description || '';
+        vuln.CweId = details.cwe?.id?.toString() || '';
+        vuln.Severity = details.severity?.toString() || '5';
+        vuln.FirstFoundDate = status.first_found_date || '';
+        vuln.DoesAffectPolicy = vulnerability.violates_policy || false;
+        
+        // Determine if mitigated based on annotations
+        vuln.IsMitigation = false;
+        vuln.MitigationType = '';
+        if (vulnerability.annotations && vulnerability.annotations.length > 0) {
+            const sortedAnnotations = vulnerability.annotations.sort((a: any, b: any) => 
+                new Date(b.created).getTime() - new Date(a.created).getTime()
+            );
+            const latestAnnotation = sortedAnnotations[0];
+            if (latestAnnotation.action === 'APPROVED') {
+                vuln.IsMitigation = true;
+                vuln.MitigationType = latestAnnotation.action;
+            }
+        }
+        
+        if (vuln.IsMitigation) {
+            vuln.MitigationCommentOnFlawClosure = `${CommonData.Constants.SCAMitigationCommentPrefix} ${vuln.MitigationType}`;
+        } else {
+            vuln.MitigationCommentOnFlawClosure = "";
+        }
+        
+        return vuln;
+    }
+
+    /**
      * Filter vulnerability from detailed report by flaw type and preapare flaws for work item creation
      * @param vulnerableComponentsList Vulnerability component list
      * @param vulnerabilityIndex Current vulnerability index

@@ -64,6 +64,188 @@ export class StaticAndDynamicFlawManager {
     }
 
     /**
+     * Process static findings from Veracode API (JSON format) directly
+     */
+    public captureDASTAndSASTFlawDataFromAPI(
+        findingsData: any,
+        workItemDetails: CommonData.workItemsDataDto,
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto
+    ): void {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: captureDASTAndSASTFlawDataFromAPI");
+        
+        const findings = findingsData._embedded?.findings || [];
+        console.log(`***Processing ${findings.length} static findings from API***`);
+        
+        // Group findings by severity
+        const findingsBySeverity: Map<number, any[]> = new Map();
+        
+        for (const finding of findings) {
+            const severity = finding.finding_details?.severity ?? 5;
+            if (!findingsBySeverity.has(severity)) {
+                findingsBySeverity.set(severity, []);
+            }
+            findingsBySeverity.get(severity)!.push(finding);
+        }
+        
+        // Process each severity level
+        for (const [severityLevel, severityFindings] of findingsBySeverity.entries()) {
+            const severityData = this.populateSeverityDataFromAPI(severityLevel, severityFindings, scanDetails, importParameters, workItemDetails);
+            if (severityData) {
+                workItemDetails.SeverityDTOList.push(severityData);
+            }
+        }
+    }
+
+    /**
+     * Populate severity data from API findings
+     */
+    private populateSeverityDataFromAPI(
+        severityLevel: number,
+        findings: any[],
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        workItemsCreationData: CommonData.workItemsDataDto
+    ): CommonData.SeverityDetailedReportDto | null {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: populateSeverityDataFromAPI");
+        
+        const severityDetails = new CommonData.SeverityDetailedReportDto();
+        severityDetails.Level = severityLevel;
+        console.log(`Current Severity : ${severityDetails.Level}`);
+        
+        // Group findings by category
+        const findingsByCategory: Map<string, any[]> = new Map();
+        
+        for (const finding of findings) {
+            const categoryName = finding.finding_details?.finding_category?.name || 'Unknown';
+            if (!findingsByCategory.has(categoryName)) {
+                findingsByCategory.set(categoryName, []);
+            }
+            findingsByCategory.get(categoryName)!.push(finding);
+        }
+        
+        // Process each category
+        for (const [categoryName, categoryFindings] of findingsByCategory.entries()) {
+            const categoryDetails = this.populateCategoryDataFromAPI(categoryName, categoryFindings, severityDetails, scanDetails, importParameters, workItemsCreationData);
+            if (categoryDetails) {
+                severityDetails.CategoryList.push(categoryDetails);
+            }
+        }
+        
+        return severityDetails.CategoryList.length > 0 ? severityDetails : null;
+    }
+
+    /**
+     * Populate category data from API findings
+     */
+    private populateCategoryDataFromAPI(
+        categoryName: string,
+        findings: any[],
+        sevData: CommonData.SeverityDetailedReportDto,
+        scanDetails: CommonData.ScanDto,
+        importParameters: CommonData.FlawImporterParametersDto,
+        workItemsCreationData: CommonData.workItemsDataDto
+    ): CommonData.CategoryDetailedReportDto | null {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: populateCategoryDataFromAPI");
+        
+        const categoryDetails = new CommonData.CategoryDetailedReportDto();
+        categoryDetails.CategoryName = categoryName;
+        console.log(`      Current Category Name : ${categoryDetails.CategoryName}`);
+        
+        // Get CWE info from first finding (all findings in a category typically share the same CWE)
+        if (findings.length > 0 && findings[0].finding_details?.cwe) {
+            const cweInfo = findings[0].finding_details.cwe;
+            const cweDetails = new CommonData.cweDto();
+            cweDetails.CweId = cweInfo.id?.toString() || '';
+            cweDetails.CweName = cweInfo.name || '';
+            
+            // Process all flaws in this category
+            for (const finding of findings) {
+                const flawDetails = this.convertFindingToFlawDto(finding);
+                cweDetails.FlawList.push(flawDetails);
+                
+                // Generate work item data
+                const scanTypeAsTag = importParameters.ScanTypeTag ? "SAST" : "";
+                this.generateWorkItemData(flawDetails, cweDetails, categoryDetails, sevData, importParameters, scanDetails, workItemsCreationData, scanTypeAsTag);
+            }
+            
+            categoryDetails.CweList.push(cweDetails);
+        }
+        
+        return categoryDetails.CweList.length > 0 ? categoryDetails : null;
+    }
+
+    /**
+     * Convert API finding JSON to FlawDto
+     */
+    private convertFindingToFlawDto(finding: any): CommonData.FlawDto {
+        const details = finding.finding_details || {};
+        const status = finding.finding_status || {};
+        
+        const flawDetails = new CommonData.FlawDto();
+        flawDetails.IssueID = finding.issue_id ? parseInt(finding.issue_id.toString()) : 0;
+        flawDetails.CategoryName = details.finding_category?.name || '';
+        flawDetails.FlawDescription = finding.description || '';
+        flawDetails.FlawAffectedbyPolicy = finding.violates_policy || false;
+        flawDetails.Line = details.file_line_number?.toString() || '';
+        flawDetails.SourceFile = details.file_path || '';
+        flawDetails.Module = details.module || '';
+        flawDetails.AttackVector = details.attack_vector || '';
+        flawDetails.FlawType = CommonData.Constants.flawType_Static; // API findings are static
+        
+        // Map mitigation status from annotations
+        let mitigationStatus = 'NEW';
+        let mitigationStatusDesc = 'New';
+        if (finding.annotations && finding.annotations.length > 0) {
+            // Sort by date, most recent first
+            const sortedAnnotations = finding.annotations.sort((a: any, b: any) => 
+                new Date(b.created).getTime() - new Date(a.created).getTime()
+            );
+            const latestAnnotation = sortedAnnotations[0];
+            mitigationStatus = latestAnnotation.action || 'NEW';
+            mitigationStatusDesc = this.getMitigationStatusDescription(latestAnnotation.action);
+        } else if (status.resolution_status) {
+            mitigationStatus = status.resolution_status;
+            mitigationStatusDesc = this.getMitigationStatusDescription(status.resolution_status);
+        }
+        
+        flawDetails.MitigationStatus = mitigationStatus;
+        flawDetails.MitigationStatusDescription = mitigationStatusDesc;
+        flawDetails.RemediationStatus = status.resolution || 'UNRESOLVED';
+        
+        // Convert annotations to comments
+        flawDetails.CommentsList = [];
+        if (finding.annotations && finding.annotations.length > 0) {
+            for (const annotation of finding.annotations) {
+                const comment = new CommonData.CommentsDTO();
+                comment.Date = annotation.created || '';
+                comment.Comment = `${annotation.created}: ${annotation.user_name}: ${annotation.action} <br> ${annotation.comment || ''}`;
+                flawDetails.CommentsList.push(comment);
+            }
+        }
+        
+        return flawDetails;
+    }
+
+    /**
+     * Get mitigation status description from action
+     */
+    private getMitigationStatusDescription(action: string): string {
+        const statusMap: Record<string, string> = {
+            'APPROVED': 'Mitigation Approved',
+            'REJECTED': 'Mitigation Rejected',
+            'PROPOSED': 'Mitigation Proposed',
+            'COMMENT': 'Comment',
+            'FP': 'False Positive',
+            'APPDESIGN': 'Application Design',
+            'OSENV': 'Operating System Environment',
+            'NETENV': 'Network Environment',
+            'LIBRARY': 'Library'
+        };
+        return statusMap[action] || action;
+    }
+
+    /**
      * Extract xml based severity data and map same to  DTO
      * @param {any} severityListItem - xml based severity data. 
      * @param {CommonData.ScanDto} scanDetails - veracode scan related details.

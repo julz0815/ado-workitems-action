@@ -68282,6 +68282,74 @@ module.exports = function getSideChannel() {
 
 /***/ }),
 
+/***/ 4481:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+"use strict";
+var sjcl={cipher:{},hash:{},keyexchange:{},mode:{},misc:{},codec:{},exception:{corrupt:function(a){this.toString=function(){return"CORRUPT: "+this.message};this.message=a},invalid:function(a){this.toString=function(){return"INVALID: "+this.message};this.message=a},bug:function(a){this.toString=function(){return"BUG: "+this.message};this.message=a},notReady:function(a){this.toString=function(){return"NOT READY: "+this.message};this.message=a}}};
+sjcl.cipher.aes=function(a){this.s[0][0][0]||this.O();var b,c,d,e,f=this.s[0][4],g=this.s[1];b=a.length;var h=1;if(4!==b&&6!==b&&8!==b)throw new sjcl.exception.invalid("invalid aes key size");this.b=[d=a.slice(0),e=[]];for(a=b;a<4*b+28;a++){c=d[a-1];if(0===a%b||8===b&&4===a%b)c=f[c>>>24]<<24^f[c>>16&255]<<16^f[c>>8&255]<<8^f[c&255],0===a%b&&(c=c<<8^c>>>24^h<<24,h=h<<1^283*(h>>7));d[a]=d[a-b]^c}for(b=0;a;b++,a--)c=d[b&3?a:a-4],e[b]=4>=a||4>b?c:g[0][f[c>>>24]]^g[1][f[c>>16&255]]^g[2][f[c>>8&255]]^g[3][f[c&
+255]]};
+sjcl.cipher.aes.prototype={encrypt:function(a){return t(this,a,0)},decrypt:function(a){return t(this,a,1)},s:[[[],[],[],[],[]],[[],[],[],[],[]]],O:function(){var a=this.s[0],b=this.s[1],c=a[4],d=b[4],e,f,g,h=[],k=[],l,n,m,p;for(e=0;0x100>e;e++)k[(h[e]=e<<1^283*(e>>7))^e]=e;for(f=g=0;!c[f];f^=l||1,g=k[g]||1)for(m=g^g<<1^g<<2^g<<3^g<<4,m=m>>8^m&255^99,c[f]=m,d[m]=f,n=h[e=h[l=h[f]]],p=0x1010101*n^0x10001*e^0x101*l^0x1010100*f,n=0x101*h[m]^0x1010100*m,e=0;4>e;e++)a[e][f]=n=n<<24^n>>>8,b[e][m]=p=p<<24^p>>>8;for(e=
+0;5>e;e++)a[e]=a[e].slice(0),b[e]=b[e].slice(0)}};
+function t(a,b,c){if(4!==b.length)throw new sjcl.exception.invalid("invalid aes block size");var d=a.b[c],e=b[0]^d[0],f=b[c?3:1]^d[1],g=b[2]^d[2];b=b[c?1:3]^d[3];var h,k,l,n=d.length/4-2,m,p=4,r=[0,0,0,0];h=a.s[c];a=h[0];var q=h[1],v=h[2],w=h[3],x=h[4];for(m=0;m<n;m++)h=a[e>>>24]^q[f>>16&255]^v[g>>8&255]^w[b&255]^d[p],k=a[f>>>24]^q[g>>16&255]^v[b>>8&255]^w[e&255]^d[p+1],l=a[g>>>24]^q[b>>16&255]^v[e>>8&255]^w[f&255]^d[p+2],b=a[b>>>24]^q[e>>16&255]^v[f>>8&255]^w[g&255]^d[p+3],p+=4,e=h,f=k,g=l;for(m=
+0;4>m;m++)r[c?3&-m:m]=x[e>>>24]<<24^x[f>>16&255]<<16^x[g>>8&255]<<8^x[b&255]^d[p++],h=e,e=f,f=g,g=b,b=h;return r}
+sjcl.bitArray={bitSlice:function(a,b,c){a=sjcl.bitArray.$(a.slice(b/32),32-(b&31)).slice(1);return void 0===c?a:sjcl.bitArray.clamp(a,c-b)},extract:function(a,b,c){var d=Math.floor(-b-c&31);return((b+c-1^b)&-32?a[b/32|0]<<32-d^a[b/32+1|0]>>>d:a[b/32|0]>>>d)&(1<<c)-1},concat:function(a,b){if(0===a.length||0===b.length)return a.concat(b);var c=a[a.length-1],d=sjcl.bitArray.getPartial(c);return 32===d?a.concat(b):sjcl.bitArray.$(b,d,c|0,a.slice(0,a.length-1))},bitLength:function(a){var b=a.length;return 0===
+b?0:32*(b-1)+sjcl.bitArray.getPartial(a[b-1])},clamp:function(a,b){if(32*a.length<b)return a;a=a.slice(0,Math.ceil(b/32));var c=a.length;b=b&31;0<c&&b&&(a[c-1]=sjcl.bitArray.partial(b,a[c-1]&2147483648>>b-1,1));return a},partial:function(a,b,c){return 32===a?b:(c?b|0:b<<32-a)+0x10000000000*a},getPartial:function(a){return Math.round(a/0x10000000000)||32},equal:function(a,b){if(sjcl.bitArray.bitLength(a)!==sjcl.bitArray.bitLength(b))return!1;var c=0,d;for(d=0;d<a.length;d++)c|=a[d]^b[d];return 0===
+c},$:function(a,b,c,d){var e;e=0;for(void 0===d&&(d=[]);32<=b;b-=32)d.push(c),c=0;if(0===b)return d.concat(a);for(e=0;e<a.length;e++)d.push(c|a[e]>>>b),c=a[e]<<32-b;e=a.length?a[a.length-1]:0;a=sjcl.bitArray.getPartial(e);d.push(sjcl.bitArray.partial(b+a&31,32<b+a?c:d.pop(),1));return d},i:function(a,b){return[a[0]^b[0],a[1]^b[1],a[2]^b[2],a[3]^b[3]]},byteswapM:function(a){var b,c;for(b=0;b<a.length;++b)c=a[b],a[b]=c>>>24|c>>>8&0xff00|(c&0xff00)<<8|c<<24;return a}};
+sjcl.codec.utf8String={fromBits:function(a){var b="",c=sjcl.bitArray.bitLength(a),d,e;for(d=0;d<c/8;d++)0===(d&3)&&(e=a[d/4]),b+=String.fromCharCode(e>>>8>>>8>>>8),e<<=8;return decodeURIComponent(escape(b))},toBits:function(a){a=unescape(encodeURIComponent(a));var b=[],c,d=0;for(c=0;c<a.length;c++)d=d<<8|a.charCodeAt(c),3===(c&3)&&(b.push(d),d=0);c&3&&b.push(sjcl.bitArray.partial(8*(c&3),d));return b}};
+sjcl.codec.hex={fromBits:function(a){var b="",c;for(c=0;c<a.length;c++)b+=((a[c]|0)+0xf00000000000).toString(16).substr(4);return b.substr(0,sjcl.bitArray.bitLength(a)/4)},toBits:function(a){var b,c=[],d;a=a.replace(/\s|0x/g,"");d=a.length;a=a+"00000000";for(b=0;b<a.length;b+=8)c.push(parseInt(a.substr(b,8),16)^0);return sjcl.bitArray.clamp(c,4*d)}};
+sjcl.codec.base32={B:"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567",X:"0123456789ABCDEFGHIJKLMNOPQRSTUV",BITS:32,BASE:5,REMAINING:27,fromBits:function(a,b,c){var d=sjcl.codec.base32.BASE,e=sjcl.codec.base32.REMAINING,f="",g=0,h=sjcl.codec.base32.B,k=0,l=sjcl.bitArray.bitLength(a);c&&(h=sjcl.codec.base32.X);for(c=0;f.length*d<l;)f+=h.charAt((k^a[c]>>>g)>>>e),g<d?(k=a[c]<<d-g,g+=e,c++):(k<<=d,g-=d);for(;f.length&7&&!b;)f+="=";return f},toBits:function(a,b){a=a.replace(/\s|=/g,"").toUpperCase();var c=sjcl.codec.base32.BITS,
+d=sjcl.codec.base32.BASE,e=sjcl.codec.base32.REMAINING,f=[],g,h=0,k=sjcl.codec.base32.B,l=0,n,m="base32";b&&(k=sjcl.codec.base32.X,m="base32hex");for(g=0;g<a.length;g++){n=k.indexOf(a.charAt(g));if(0>n){if(!b)try{return sjcl.codec.base32hex.toBits(a)}catch(p){}throw new sjcl.exception.invalid("this isn't "+m+"!");}h>e?(h-=e,f.push(l^n>>>h),l=n<<c-h):(h+=d,l^=n<<c-h)}h&56&&f.push(sjcl.bitArray.partial(h&56,l,1));return f}};
+sjcl.codec.base32hex={fromBits:function(a,b){return sjcl.codec.base32.fromBits(a,b,1)},toBits:function(a){return sjcl.codec.base32.toBits(a,1)}};
+sjcl.codec.base64={B:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/",fromBits:function(a,b,c){var d="",e=0,f=sjcl.codec.base64.B,g=0,h=sjcl.bitArray.bitLength(a);c&&(f=f.substr(0,62)+"-_");for(c=0;6*d.length<h;)d+=f.charAt((g^a[c]>>>e)>>>26),6>e?(g=a[c]<<6-e,e+=26,c++):(g<<=6,e-=6);for(;d.length&3&&!b;)d+="=";return d},toBits:function(a,b){a=a.replace(/\s|=/g,"");var c=[],d,e=0,f=sjcl.codec.base64.B,g=0,h;b&&(f=f.substr(0,62)+"-_");for(d=0;d<a.length;d++){h=f.indexOf(a.charAt(d));
+if(0>h)throw new sjcl.exception.invalid("this isn't base64!");26<e?(e-=26,c.push(g^h>>>e),g=h<<32-e):(e+=6,g^=h<<32-e)}e&56&&c.push(sjcl.bitArray.partial(e&56,g,1));return c}};sjcl.codec.base64url={fromBits:function(a){return sjcl.codec.base64.fromBits(a,1,1)},toBits:function(a){return sjcl.codec.base64.toBits(a,1)}};sjcl.hash.sha256=function(a){this.b[0]||this.O();a?(this.F=a.F.slice(0),this.A=a.A.slice(0),this.l=a.l):this.reset()};sjcl.hash.sha256.hash=function(a){return(new sjcl.hash.sha256).update(a).finalize()};
+sjcl.hash.sha256.prototype={blockSize:512,reset:function(){this.F=this.Y.slice(0);this.A=[];this.l=0;return this},update:function(a){"string"===typeof a&&(a=sjcl.codec.utf8String.toBits(a));var b,c=this.A=sjcl.bitArray.concat(this.A,a);b=this.l;a=this.l=b+sjcl.bitArray.bitLength(a);if(0x1fffffffffffff<a)throw new sjcl.exception.invalid("Cannot hash more than 2^53 - 1 bits");if("undefined"!==typeof Uint32Array){var d=new Uint32Array(c),e=0;for(b=512+b-(512+b&0x1ff);b<=a;b+=512)u(this,d.subarray(16*e,
+16*(e+1))),e+=1;c.splice(0,16*e)}else for(b=512+b-(512+b&0x1ff);b<=a;b+=512)u(this,c.splice(0,16));return this},finalize:function(){var a,b=this.A,c=this.F,b=sjcl.bitArray.concat(b,[sjcl.bitArray.partial(1,1)]);for(a=b.length+2;a&15;a++)b.push(0);b.push(Math.floor(this.l/0x100000000));for(b.push(this.l|0);b.length;)u(this,b.splice(0,16));this.reset();return c},Y:[],b:[],O:function(){function a(a){return 0x100000000*(a-Math.floor(a))|0}for(var b=0,c=2,d,e;64>b;c++){e=!0;for(d=2;d*d<=c;d++)if(0===c%d){e=
+!1;break}e&&(8>b&&(this.Y[b]=a(Math.pow(c,.5))),this.b[b]=a(Math.pow(c,1/3)),b++)}}};
+function u(a,b){var c,d,e,f=a.F,g=a.b,h=f[0],k=f[1],l=f[2],n=f[3],m=f[4],p=f[5],r=f[6],q=f[7];for(c=0;64>c;c++)16>c?d=b[c]:(d=b[c+1&15],e=b[c+14&15],d=b[c&15]=(d>>>7^d>>>18^d>>>3^d<<25^d<<14)+(e>>>17^e>>>19^e>>>10^e<<15^e<<13)+b[c&15]+b[c+9&15]|0),d=d+q+(m>>>6^m>>>11^m>>>25^m<<26^m<<21^m<<7)+(r^m&(p^r))+g[c],q=r,r=p,p=m,m=n+d|0,n=l,l=k,k=h,h=d+(k&l^n&(k^l))+(k>>>2^k>>>13^k>>>22^k<<30^k<<19^k<<10)|0;f[0]=f[0]+h|0;f[1]=f[1]+k|0;f[2]=f[2]+l|0;f[3]=f[3]+n|0;f[4]=f[4]+m|0;f[5]=f[5]+p|0;f[6]=f[6]+r|0;f[7]=
+f[7]+q|0}
+sjcl.mode.ccm={name:"ccm",G:[],listenProgress:function(a){sjcl.mode.ccm.G.push(a)},unListenProgress:function(a){a=sjcl.mode.ccm.G.indexOf(a);-1<a&&sjcl.mode.ccm.G.splice(a,1)},fa:function(a){var b=sjcl.mode.ccm.G.slice(),c;for(c=0;c<b.length;c+=1)b[c](a)},encrypt:function(a,b,c,d,e){var f,g=b.slice(0),h=sjcl.bitArray,k=h.bitLength(c)/8,l=h.bitLength(g)/8;e=e||64;d=d||[];if(7>k)throw new sjcl.exception.invalid("ccm: iv must be at least 7 bytes");for(f=2;4>f&&l>>>8*f;f++);f<15-k&&(f=15-k);c=h.clamp(c,
+8*(15-f));b=sjcl.mode.ccm.V(a,b,c,d,e,f);g=sjcl.mode.ccm.C(a,g,c,b,e,f);return h.concat(g.data,g.tag)},decrypt:function(a,b,c,d,e){e=e||64;d=d||[];var f=sjcl.bitArray,g=f.bitLength(c)/8,h=f.bitLength(b),k=f.clamp(b,h-e),l=f.bitSlice(b,h-e),h=(h-e)/8;if(7>g)throw new sjcl.exception.invalid("ccm: iv must be at least 7 bytes");for(b=2;4>b&&h>>>8*b;b++);b<15-g&&(b=15-g);c=f.clamp(c,8*(15-b));k=sjcl.mode.ccm.C(a,k,c,l,e,b);a=sjcl.mode.ccm.V(a,k.data,c,d,e,b);if(!f.equal(k.tag,a))throw new sjcl.exception.corrupt("ccm: tag doesn't match");
+return k.data},na:function(a,b,c,d,e,f){var g=[],h=sjcl.bitArray,k=h.i;d=[h.partial(8,(b.length?64:0)|d-2<<2|f-1)];d=h.concat(d,c);d[3]|=e;d=a.encrypt(d);if(b.length)for(c=h.bitLength(b)/8,65279>=c?g=[h.partial(16,c)]:0xffffffff>=c&&(g=h.concat([h.partial(16,65534)],[c])),g=h.concat(g,b),b=0;b<g.length;b+=4)d=a.encrypt(k(d,g.slice(b,b+4).concat([0,0,0])));return d},V:function(a,b,c,d,e,f){var g=sjcl.bitArray,h=g.i;e/=8;if(e%2||4>e||16<e)throw new sjcl.exception.invalid("ccm: invalid tag length");
+if(0xffffffff<d.length||0xffffffff<b.length)throw new sjcl.exception.bug("ccm: can't deal with 4GiB or more data");c=sjcl.mode.ccm.na(a,d,c,e,g.bitLength(b)/8,f);for(d=0;d<b.length;d+=4)c=a.encrypt(h(c,b.slice(d,d+4).concat([0,0,0])));return g.clamp(c,8*e)},C:function(a,b,c,d,e,f){var g,h=sjcl.bitArray;g=h.i;var k=b.length,l=h.bitLength(b),n=k/50,m=n;c=h.concat([h.partial(8,f-1)],c).concat([0,0,0]).slice(0,4);d=h.bitSlice(g(d,a.encrypt(c)),0,e);if(!k)return{tag:d,data:[]};for(g=0;g<k;g+=4)g>n&&(sjcl.mode.ccm.fa(g/
+k),n+=m),c[3]++,e=a.encrypt(c),b[g]^=e[0],b[g+1]^=e[1],b[g+2]^=e[2],b[g+3]^=e[3];return{tag:d,data:h.clamp(b,l)}}};
+sjcl.mode.ocb2={name:"ocb2",encrypt:function(a,b,c,d,e,f){if(128!==sjcl.bitArray.bitLength(c))throw new sjcl.exception.invalid("ocb iv must be 128 bits");var g,h=sjcl.mode.ocb2.S,k=sjcl.bitArray,l=k.i,n=[0,0,0,0];c=h(a.encrypt(c));var m,p=[];d=d||[];e=e||64;for(g=0;g+4<b.length;g+=4)m=b.slice(g,g+4),n=l(n,m),p=p.concat(l(c,a.encrypt(l(c,m)))),c=h(c);m=b.slice(g);b=k.bitLength(m);g=a.encrypt(l(c,[0,0,0,b]));m=k.clamp(l(m.concat([0,0,0]),g),b);n=l(n,l(m.concat([0,0,0]),g));n=a.encrypt(l(n,l(c,h(c))));
+d.length&&(n=l(n,f?d:sjcl.mode.ocb2.pmac(a,d)));return p.concat(k.concat(m,k.clamp(n,e)))},decrypt:function(a,b,c,d,e,f){if(128!==sjcl.bitArray.bitLength(c))throw new sjcl.exception.invalid("ocb iv must be 128 bits");e=e||64;var g=sjcl.mode.ocb2.S,h=sjcl.bitArray,k=h.i,l=[0,0,0,0],n=g(a.encrypt(c)),m,p,r=sjcl.bitArray.bitLength(b)-e,q=[];d=d||[];for(c=0;c+4<r/32;c+=4)m=k(n,a.decrypt(k(n,b.slice(c,c+4)))),l=k(l,m),q=q.concat(m),n=g(n);p=r-32*c;m=a.encrypt(k(n,[0,0,0,p]));m=k(m,h.clamp(b.slice(c),p).concat([0,
+0,0]));l=k(l,m);l=a.encrypt(k(l,k(n,g(n))));d.length&&(l=k(l,f?d:sjcl.mode.ocb2.pmac(a,d)));if(!h.equal(h.clamp(l,e),h.bitSlice(b,r)))throw new sjcl.exception.corrupt("ocb: tag doesn't match");return q.concat(h.clamp(m,p))},pmac:function(a,b){var c,d=sjcl.mode.ocb2.S,e=sjcl.bitArray,f=e.i,g=[0,0,0,0],h=a.encrypt([0,0,0,0]),h=f(h,d(d(h)));for(c=0;c+4<b.length;c+=4)h=d(h),g=f(g,a.encrypt(f(h,b.slice(c,c+4))));c=b.slice(c);128>e.bitLength(c)&&(h=f(h,d(h)),c=e.concat(c,[-2147483648,0,0,0]));g=f(g,c);
+return a.encrypt(f(d(f(h,d(h))),g))},S:function(a){return[a[0]<<1^a[1]>>>31,a[1]<<1^a[2]>>>31,a[2]<<1^a[3]>>>31,a[3]<<1^135*(a[0]>>>31)]}};
+sjcl.mode.gcm={name:"gcm",encrypt:function(a,b,c,d,e){var f=b.slice(0);b=sjcl.bitArray;d=d||[];a=sjcl.mode.gcm.C(!0,a,f,d,c,e||128);return b.concat(a.data,a.tag)},decrypt:function(a,b,c,d,e){var f=b.slice(0),g=sjcl.bitArray,h=g.bitLength(f);e=e||128;d=d||[];e<=h?(b=g.bitSlice(f,h-e),f=g.bitSlice(f,0,h-e)):(b=f,f=[]);a=sjcl.mode.gcm.C(!1,a,f,d,c,e);if(!g.equal(a.tag,b))throw new sjcl.exception.corrupt("gcm: tag doesn't match");return a.data},ka:function(a,b){var c,d,e,f,g,h=sjcl.bitArray.i;e=[0,0,
+0,0];f=b.slice(0);for(c=0;128>c;c++){(d=0!==(a[Math.floor(c/32)]&1<<31-c%32))&&(e=h(e,f));g=0!==(f[3]&1);for(d=3;0<d;d--)f[d]=f[d]>>>1|(f[d-1]&1)<<31;f[0]>>>=1;g&&(f[0]^=-0x1f000000)}return e},j:function(a,b,c){var d,e=c.length;b=b.slice(0);for(d=0;d<e;d+=4)b[0]^=0xffffffff&c[d],b[1]^=0xffffffff&c[d+1],b[2]^=0xffffffff&c[d+2],b[3]^=0xffffffff&c[d+3],b=sjcl.mode.gcm.ka(b,a);return b},C:function(a,b,c,d,e,f){var g,h,k,l,n,m,p,r,q=sjcl.bitArray;m=c.length;p=q.bitLength(c);r=q.bitLength(d);h=q.bitLength(e);
+g=b.encrypt([0,0,0,0]);96===h?(e=e.slice(0),e=q.concat(e,[1])):(e=sjcl.mode.gcm.j(g,[0,0,0,0],e),e=sjcl.mode.gcm.j(g,e,[0,0,Math.floor(h/0x100000000),h&0xffffffff]));h=sjcl.mode.gcm.j(g,[0,0,0,0],d);n=e.slice(0);d=h.slice(0);a||(d=sjcl.mode.gcm.j(g,h,c));for(l=0;l<m;l+=4)n[3]++,k=b.encrypt(n),c[l]^=k[0],c[l+1]^=k[1],c[l+2]^=k[2],c[l+3]^=k[3];c=q.clamp(c,p);a&&(d=sjcl.mode.gcm.j(g,h,c));a=[Math.floor(r/0x100000000),r&0xffffffff,Math.floor(p/0x100000000),p&0xffffffff];d=sjcl.mode.gcm.j(g,d,a);k=b.encrypt(e);
+d[0]^=k[0];d[1]^=k[1];d[2]^=k[2];d[3]^=k[3];return{tag:q.bitSlice(d,0,f),data:c}}};sjcl.misc.hmac=function(a,b){this.W=b=b||sjcl.hash.sha256;var c=[[],[]],d,e=b.prototype.blockSize/32;this.w=[new b,new b];a.length>e&&(a=b.hash(a));for(d=0;d<e;d++)c[0][d]=a[d]^909522486,c[1][d]=a[d]^1549556828;this.w[0].update(c[0]);this.w[1].update(c[1]);this.R=new b(this.w[0])};
+sjcl.misc.hmac.prototype.encrypt=sjcl.misc.hmac.prototype.mac=function(a){if(this.aa)throw new sjcl.exception.invalid("encrypt on already updated hmac called!");this.update(a);return this.digest(a)};sjcl.misc.hmac.prototype.reset=function(){this.R=new this.W(this.w[0]);this.aa=!1};sjcl.misc.hmac.prototype.update=function(a){this.aa=!0;this.R.update(a)};sjcl.misc.hmac.prototype.digest=function(){var a=this.R.finalize(),a=(new this.W(this.w[1])).update(a).finalize();this.reset();return a};
+sjcl.misc.pbkdf2=function(a,b,c,d,e){c=c||1E4;if(0>d||0>c)throw new sjcl.exception.invalid("invalid params to pbkdf2");"string"===typeof a&&(a=sjcl.codec.utf8String.toBits(a));"string"===typeof b&&(b=sjcl.codec.utf8String.toBits(b));e=e||sjcl.misc.hmac;a=new e(a);var f,g,h,k,l=[],n=sjcl.bitArray;for(k=1;32*l.length<(d||1);k++){e=f=a.encrypt(n.concat(b,[k]));for(g=1;g<c;g++)for(f=a.encrypt(f),h=0;h<f.length;h++)e[h]^=f[h];l=l.concat(e)}d&&(l=n.clamp(l,d));return l};
+sjcl.prng=function(a){this.c=[new sjcl.hash.sha256];this.m=[0];this.P=0;this.H={};this.N=0;this.U={};this.Z=this.f=this.o=this.ha=0;this.b=[0,0,0,0,0,0,0,0];this.h=[0,0,0,0];this.L=void 0;this.M=a;this.D=!1;this.K={progress:{},seeded:{}};this.u=this.ga=0;this.I=1;this.J=2;this.ca=0x10000;this.T=[0,48,64,96,128,192,0x100,384,512,768,1024];this.da=3E4;this.ba=80};
+sjcl.prng.prototype={randomWords:function(a,b){var c=[],d;d=this.isReady(b);var e;if(d===this.u)throw new sjcl.exception.notReady("generator isn't seeded");if(d&this.J){d=!(d&this.I);e=[];var f=0,g;this.Z=e[0]=(new Date).valueOf()+this.da;for(g=0;16>g;g++)e.push(0x100000000*Math.random()|0);for(g=0;g<this.c.length&&(e=e.concat(this.c[g].finalize()),f+=this.m[g],this.m[g]=0,d||!(this.P&1<<g));g++);this.P>=1<<this.c.length&&(this.c.push(new sjcl.hash.sha256),this.m.push(0));this.f-=f;f>this.o&&(this.o=
+f);this.P++;this.b=sjcl.hash.sha256.hash(this.b.concat(e));this.L=new sjcl.cipher.aes(this.b);for(d=0;4>d&&(this.h[d]=this.h[d]+1|0,!this.h[d]);d++);}for(d=0;d<a;d+=4)0===(d+1)%this.ca&&y(this),e=z(this),c.push(e[0],e[1],e[2],e[3]);y(this);return c.slice(0,a)},setDefaultParanoia:function(a,b){if(0===a&&"Setting paranoia=0 will ruin your security; use it only for testing"!==b)throw new sjcl.exception.invalid("Setting paranoia=0 will ruin your security; use it only for testing");this.M=a},addEntropy:function(a,
+b,c){c=c||"user";var d,e,f=(new Date).valueOf(),g=this.H[c],h=this.isReady(),k=0;d=this.U[c];void 0===d&&(d=this.U[c]=this.ha++);void 0===g&&(g=this.H[c]=0);this.H[c]=(this.H[c]+1)%this.c.length;switch(typeof a){case "number":void 0===b&&(b=1);this.c[g].update([d,this.N++,1,b,f,1,a|0]);break;case "object":c=Object.prototype.toString.call(a);if("[object Uint32Array]"===c){e=[];for(c=0;c<a.length;c++)e.push(a[c]);a=e}else for("[object Array]"!==c&&(k=1),c=0;c<a.length&&!k;c++)"number"!==typeof a[c]&&
+(k=1);if(!k){if(void 0===b)for(c=b=0;c<a.length;c++)for(e=a[c];0<e;)b++,e=e>>>1;this.c[g].update([d,this.N++,2,b,f,a.length].concat(a))}break;case "string":void 0===b&&(b=a.length);this.c[g].update([d,this.N++,3,b,f,a.length]);this.c[g].update(a);break;default:k=1}if(k)throw new sjcl.exception.bug("random: addEntropy only supports number, array of numbers or string");this.m[g]+=b;this.f+=b;h===this.u&&(this.isReady()!==this.u&&A("seeded",Math.max(this.o,this.f)),A("progress",this.getProgress()))},
+isReady:function(a){a=this.T[void 0!==a?a:this.M];return this.o&&this.o>=a?this.m[0]>this.ba&&(new Date).valueOf()>this.Z?this.J|this.I:this.I:this.f>=a?this.J|this.u:this.u},getProgress:function(a){a=this.T[a?a:this.M];return this.o>=a?1:this.f>a?1:this.f/a},startCollectors:function(){if(!this.D){this.a={loadTimeCollector:B(this,this.ma),mouseCollector:B(this,this.oa),keyboardCollector:B(this,this.la),accelerometerCollector:B(this,this.ea),touchCollector:B(this,this.qa)};if(window.addEventListener)window.addEventListener("load",
+this.a.loadTimeCollector,!1),window.addEventListener("mousemove",this.a.mouseCollector,!1),window.addEventListener("keypress",this.a.keyboardCollector,!1),window.addEventListener("devicemotion",this.a.accelerometerCollector,!1),window.addEventListener("touchmove",this.a.touchCollector,!1);else if(document.attachEvent)document.attachEvent("onload",this.a.loadTimeCollector),document.attachEvent("onmousemove",this.a.mouseCollector),document.attachEvent("keypress",this.a.keyboardCollector);else throw new sjcl.exception.bug("can't attach event");
+this.D=!0}},stopCollectors:function(){this.D&&(window.removeEventListener?(window.removeEventListener("load",this.a.loadTimeCollector,!1),window.removeEventListener("mousemove",this.a.mouseCollector,!1),window.removeEventListener("keypress",this.a.keyboardCollector,!1),window.removeEventListener("devicemotion",this.a.accelerometerCollector,!1),window.removeEventListener("touchmove",this.a.touchCollector,!1)):document.detachEvent&&(document.detachEvent("onload",this.a.loadTimeCollector),document.detachEvent("onmousemove",
+this.a.mouseCollector),document.detachEvent("keypress",this.a.keyboardCollector)),this.D=!1)},addEventListener:function(a,b){this.K[a][this.ga++]=b},removeEventListener:function(a,b){var c,d,e=this.K[a],f=[];for(d in e)e.hasOwnProperty(d)&&e[d]===b&&f.push(d);for(c=0;c<f.length;c++)d=f[c],delete e[d]},la:function(){C(this,1)},oa:function(a){var b,c;try{b=a.x||a.clientX||a.offsetX||0,c=a.y||a.clientY||a.offsetY||0}catch(d){c=b=0}0!=b&&0!=c&&this.addEntropy([b,c],2,"mouse");C(this,0)},qa:function(a){a=
+a.touches[0]||a.changedTouches[0];this.addEntropy([a.pageX||a.clientX,a.pageY||a.clientY],1,"touch");C(this,0)},ma:function(){C(this,2)},ea:function(a){a=a.accelerationIncludingGravity.x||a.accelerationIncludingGravity.y||a.accelerationIncludingGravity.z;if(window.orientation){var b=window.orientation;"number"===typeof b&&this.addEntropy(b,1,"accelerometer")}a&&this.addEntropy(a,2,"accelerometer");C(this,0)}};
+function A(a,b){var c,d=sjcl.random.K[a],e=[];for(c in d)d.hasOwnProperty(c)&&e.push(d[c]);for(c=0;c<e.length;c++)e[c](b)}function C(a,b){"undefined"!==typeof window&&window.performance&&"function"===typeof window.performance.now?a.addEntropy(window.performance.now(),b,"loadtime"):a.addEntropy((new Date).valueOf(),b,"loadtime")}function y(a){a.b=z(a).concat(z(a));a.L=new sjcl.cipher.aes(a.b)}function z(a){for(var b=0;4>b&&(a.h[b]=a.h[b]+1|0,!a.h[b]);b++);return a.L.encrypt(a.h)}
+function B(a,b){return function(){b.apply(a,arguments)}}sjcl.random=new sjcl.prng(6);
+a:try{var D,E,F,G;if(G= true&&module.exports){var H;try{H=__nccwpck_require__(6982)}catch(a){H=null}G=E=H}if(G&&E.randomBytes)D=E.randomBytes(128),D=new Uint32Array((new Uint8Array(D)).buffer),sjcl.random.addEntropy(D,1024,"crypto['randomBytes']");else if("undefined"!==typeof window&&"undefined"!==typeof Uint32Array){F=new Uint32Array(32);if(window.crypto&&window.crypto.getRandomValues)window.crypto.getRandomValues(F);else if(window.msCrypto&&window.msCrypto.getRandomValues)window.msCrypto.getRandomValues(F);
+else break a;sjcl.random.addEntropy(F,1024,"crypto['getRandomValues']")}}catch(a){"undefined"!==typeof window&&window.console&&(console.log("There was an error collecting entropy from the browser:"),console.log(a))}
+sjcl.json={defaults:{v:1,iter:1E4,ks:128,ts:64,mode:"ccm",adata:"",cipher:"aes"},ja:function(a,b,c,d){c=c||{};d=d||{};var e=sjcl.json,f=e.g({iv:sjcl.random.randomWords(4,0)},e.defaults),g;e.g(f,c);c=f.adata;"string"===typeof f.salt&&(f.salt=sjcl.codec.base64.toBits(f.salt));"string"===typeof f.iv&&(f.iv=sjcl.codec.base64.toBits(f.iv));if(!sjcl.mode[f.mode]||!sjcl.cipher[f.cipher]||"string"===typeof a&&100>=f.iter||64!==f.ts&&96!==f.ts&&128!==f.ts||128!==f.ks&&192!==f.ks&&0x100!==f.ks||2>f.iv.length||
+4<f.iv.length)throw new sjcl.exception.invalid("json encrypt: invalid parameters");"string"===typeof a?(g=sjcl.misc.cachedPbkdf2(a,f),a=g.key.slice(0,f.ks/32),f.salt=g.salt):sjcl.ecc&&a instanceof sjcl.ecc.elGamal.publicKey&&(g=a.kem(),f.kemtag=g.tag,a=g.key.slice(0,f.ks/32));"string"===typeof b&&(b=sjcl.codec.utf8String.toBits(b));"string"===typeof c&&(f.adata=c=sjcl.codec.utf8String.toBits(c));g=new sjcl.cipher[f.cipher](a);e.g(d,f);d.key=a;f.ct="ccm"===f.mode&&sjcl.arrayBuffer&&sjcl.arrayBuffer.ccm&&
+b instanceof ArrayBuffer?sjcl.arrayBuffer.ccm.encrypt(g,b,f.iv,c,f.ts):sjcl.mode[f.mode].encrypt(g,b,f.iv,c,f.ts);return f},encrypt:function(a,b,c,d){var e=sjcl.json,f=e.ja.apply(e,arguments);return e.encode(f)},ia:function(a,b,c,d){c=c||{};d=d||{};var e=sjcl.json;b=e.g(e.g(e.g({},e.defaults),b),c,!0);var f,g;f=b.adata;"string"===typeof b.salt&&(b.salt=sjcl.codec.base64.toBits(b.salt));"string"===typeof b.iv&&(b.iv=sjcl.codec.base64.toBits(b.iv));if(!sjcl.mode[b.mode]||!sjcl.cipher[b.cipher]||"string"===
+typeof a&&100>=b.iter||64!==b.ts&&96!==b.ts&&128!==b.ts||128!==b.ks&&192!==b.ks&&0x100!==b.ks||!b.iv||2>b.iv.length||4<b.iv.length)throw new sjcl.exception.invalid("json decrypt: invalid parameters");"string"===typeof a?(g=sjcl.misc.cachedPbkdf2(a,b),a=g.key.slice(0,b.ks/32),b.salt=g.salt):sjcl.ecc&&a instanceof sjcl.ecc.elGamal.secretKey&&(a=a.unkem(sjcl.codec.base64.toBits(b.kemtag)).slice(0,b.ks/32));"string"===typeof f&&(f=sjcl.codec.utf8String.toBits(f));g=new sjcl.cipher[b.cipher](a);f="ccm"===
+b.mode&&sjcl.arrayBuffer&&sjcl.arrayBuffer.ccm&&b.ct instanceof ArrayBuffer?sjcl.arrayBuffer.ccm.decrypt(g,b.ct,b.iv,b.tag,f,b.ts):sjcl.mode[b.mode].decrypt(g,b.ct,b.iv,f,b.ts);e.g(d,b);d.key=a;return 1===c.raw?f:sjcl.codec.utf8String.fromBits(f)},decrypt:function(a,b,c,d){var e=sjcl.json;return e.ia(a,e.decode(b),c,d)},encode:function(a){var b,c="{",d="";for(b in a)if(a.hasOwnProperty(b)){if(!b.match(/^[a-z0-9]+$/i))throw new sjcl.exception.invalid("json encode: invalid property name");c+=d+'"'+
+b+'":';d=",";switch(typeof a[b]){case "number":case "boolean":c+=a[b];break;case "string":c+='"'+escape(a[b])+'"';break;case "object":c+='"'+sjcl.codec.base64.fromBits(a[b],0)+'"';break;default:throw new sjcl.exception.bug("json encode: unsupported type");}}return c+"}"},decode:function(a){a=a.replace(/\s/g,"");if(!a.match(/^\{.*\}$/))throw new sjcl.exception.invalid("json decode: this isn't json!");a=a.replace(/^\{|\}$/g,"").split(/,/);var b={},c,d;for(c=0;c<a.length;c++){if(!(d=a[c].match(/^\s*(?:(["']?)([a-z][a-z0-9]*)\1)\s*:\s*(?:(-?\d+)|"([a-z0-9+\/%*_.@=\-]*)"|(true|false))$/i)))throw new sjcl.exception.invalid("json decode: this isn't json!");
+null!=d[3]?b[d[2]]=parseInt(d[3],10):null!=d[4]?b[d[2]]=d[2].match(/^(ct|adata|salt|iv)$/)?sjcl.codec.base64.toBits(d[4]):unescape(d[4]):null!=d[5]&&(b[d[2]]="true"===d[5])}return b},g:function(a,b,c){void 0===a&&(a={});if(void 0===b)return a;for(var d in b)if(b.hasOwnProperty(d)){if(c&&void 0!==a[d]&&a[d]!==b[d])throw new sjcl.exception.invalid("required parameter overridden");a[d]=b[d]}return a},sa:function(a,b){var c={},d;for(d in a)a.hasOwnProperty(d)&&a[d]!==b[d]&&(c[d]=a[d]);return c},ra:function(a,
+b){var c={},d;for(d=0;d<b.length;d++)void 0!==a[b[d]]&&(c[b[d]]=a[b[d]]);return c}};sjcl.encrypt=sjcl.json.encrypt;sjcl.decrypt=sjcl.json.decrypt;sjcl.misc.pa={};sjcl.misc.cachedPbkdf2=function(a,b){var c=sjcl.misc.pa,d;b=b||{};d=b.iter||1E3;c=c[a]=c[a]||{};d=c[d]=c[d]||{firstSalt:b.salt&&b.salt.length?b.salt.slice(0):sjcl.random.randomWords(2,0)};c=void 0===b.salt?d.firstSalt:b.salt;d[c]=d[c]||sjcl.misc.pbkdf2(a,c,b.iter);return{key:d[c].slice(0),salt:c.slice(0)}};
+ true&&module.exports&&(module.exports=sjcl);"function"===typeof define&&define([],function(){return sjcl});
+
+
+/***/ }),
+
 /***/ 770:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -94166,7 +94234,7 @@ const q = __importStar(__nccwpck_require__(5560));
 const CommonData = __importStar(__nccwpck_require__(8802));
 const FlawManager_1 = __nccwpck_require__(6970);
 const InputsManager_1 = __nccwpck_require__(732);
-const veracodeBridgeConnector = __importStar(__nccwpck_require__(403));
+const VeracodeAPIClient_1 = __nccwpck_require__(499);
 const WICreator = __importStar(__nccwpck_require__(9681));
 /**
  * import work items from Veracode application according to  provided parameters
@@ -94293,11 +94361,18 @@ class FlawImporter {
      */
     async retrieveWorkItemsData(scanDetails, importParameters) {
         core.debug("Class Name: FlawImporter, Method Name: retrieveWorkItemsData");
-        importParameters.ApiAction = CommonData.Constants.apiAction_GetDetailedReport;
         try {
-            if (this.veracodeBridgeData) {
-                let reportDetails = await this.veracodeBridgeData.downloadAndReadDetailedReportData(scanDetails.BuildId, importParameters);
-                return await this.flawManager.manageFlaws(scanDetails, importParameters, reportDetails);
+            if (this.veracodeAPIClient) {
+                // Get findings data from API
+                const findingsData = await this.veracodeAPIClient.getFindingsData(scanDetails, importParameters);
+                if (!findingsData) {
+                    core.warning("No findings data retrieved from API");
+                    return new CommonData.workItemsDataDto();
+                }
+                // Process JSON findings directly (no XML conversion needed)
+                core.info("Findings retrieved from API. Processing JSON findings directly...");
+                // Use FlawManager's new method that processes JSON directly
+                return await this.flawManager.manageFlawsFromAPI(scanDetails, importParameters, findingsData);
             }
             return new CommonData.workItemsDataDto();
         }
@@ -94313,7 +94388,7 @@ class FlawImporter {
     */
     async obtainPrerequisites(importParameters) {
         core.debug("Class Name: FlawImporter, Method Name: obtainPrerequisites");
-        this.veracodeBridgeData = new veracodeBridgeConnector.VeracodeBridge(importParameters);
+        this.veracodeAPIClient = new VeracodeAPIClient_1.VeracodeAPIClient(importParameters);
         let scanDetails = new CommonData.ScanDto();
         try {
             if (this.isInvalidAppName(importParameters)) {
@@ -94322,29 +94397,22 @@ class FlawImporter {
             if (importParameters.VeracodeAppProfile.length > CommonData.Constants.MaxCharactersAllowedInApplicationName) {
                 this.commonHelper.handleError(null, CommonData.Constants.ApplicationNameTooLong, importParameters.FailBuildIfFlawImporterBuildStepFails);
             }
-            if (this.veracodeBridgeData) {
-                scanDetails.AnalysisCenterUrl = await this.veracodeBridgeData.getAnalysisCenterUrl(importParameters);
-                importParameters.ApiAction = CommonData.Constants.apiAction_GetApplist;
-                await this.veracodeBridgeData.getAppInfo(scanDetails, importParameters);
-                if (!scanDetails.Appid) {
+            if (this.veracodeAPIClient) {
+                // Use API client to get app info
+                const appInfoResult = await this.veracodeAPIClient.getAppInfo(scanDetails, importParameters);
+                if (!appInfoResult || !appInfoResult.Appid) {
                     return scanDetails;
                 }
-                let latestScan = new CommonData.ScanDto();
+                scanDetails = appInfoResult;
+                // Validate sandbox name length if provided
                 if (importParameters.SandboxName && importParameters.SandboxName.length > CommonData.Constants.MaxCharactersAllowedInSandboxName) {
                     this.commonHelper.setTaskFailure(CommonData.Constants.SandboxNameTooLong);
                 }
-                if (!importParameters.SandboxId && importParameters.SandboxName) {
-                    importParameters.ApiAction = CommonData.Constants.apiAction_GetSandBoxlist;
-                    await this.veracodeBridgeData.getSandboxInfo(scanDetails.Appid.toString(), importParameters);
+                // Get latest build info (for API, this just sets the build ID to the app GUID)
+                const latestScan = await this.veracodeAPIClient.getLatestBuild(scanDetails, importParameters);
+                if (latestScan) {
+                    return latestScan;
                 }
-                if ((importParameters.SandboxId && importParameters.SandboxName) || !importParameters.SandboxName) {
-                    latestScan = await this.veracodeBridgeData.getLatestBuild(scanDetails, importParameters);
-                }
-                else {
-                    this.commonHelper.handleError(null, "Invalid sandbox", this.failBuildIfFlawImporterBuildStepFails);
-                }
-                latestScan.AnalysisCenterUrl = scanDetails.AnalysisCenterUrl;
-                return latestScan;
             }
             return scanDetails;
         }
@@ -94486,6 +94554,42 @@ class FlawManager {
             deferred.reject(error);
         }
         return deferred.promise;
+    }
+    /**
+     * Process findings from Veracode API (JSON format) directly
+     * This is more efficient than converting JSON to XML and back
+     */
+    async manageFlawsFromAPI(scanDetails, importParameters, findingsData) {
+        core.debug("Class Name: FlawManager, Method Name: manageFlawsFromAPI");
+        const workItemDetails = new CommonData.workItemsDataDto();
+        workItemDetails.Appid = scanDetails.Appid;
+        workItemDetails.BuildID = scanDetails.BuildId;
+        workItemDetails.OverwriteAreaPathInWorkItemsOnImport = importParameters.OverwriteAreaPathInWorkItemsOnImport;
+        workItemDetails.OverwriteIterationPathInWorkItemsOnImport = importParameters.OverwriteIterationPathInWorkItemsOnImport;
+        workItemDetails.ImportType = importParameters.ImportType;
+        workItemDetails.Area = importParameters.AreaPath;
+        workItemDetails.IterationPath = importParameters.IterationPath;
+        workItemDetails.FlawImportLimit = importParameters.FlawImportLimit;
+        workItemDetails.BuildVersion = "1.0"; // API doesn't provide version, use default
+        console.log("Start Mapping API Findings to DTO");
+        try {
+            const scanType = importParameters.ScanType;
+            // Process static findings
+            if ((scanType === 'Static Analysis' || scanType === 'Static Analysis and SCA') && findingsData.staticFindings) {
+                this.staticAndDynamicFlawManager = new StaticAndDynamicFlawManager_1.StaticAndDynamicFlawManager();
+                this.staticAndDynamicFlawManager.captureDASTAndSASTFlawDataFromAPI(findingsData.staticFindings, workItemDetails, scanDetails, importParameters);
+            }
+            // Process SCA findings
+            if ((scanType === 'Software Composition Analysis (SCA)' || scanType === 'Static Analysis and SCA') && findingsData.scaFindings) {
+                this.sCAFlawManager = new SCAFlawManager_1.SCAFlawManager();
+                this.sCAFlawManager.captureSCAFlawDataFromAPI(findingsData.scaFindings, workItemDetails, importParameters, scanDetails);
+            }
+            return workItemDetails;
+        }
+        catch (error) {
+            core.error(`Error processing API findings: ${error}`);
+            throw error;
+        }
     }
     /**
      * Makes necessary adjustments to support SCA flaw importing
@@ -94839,6 +94943,96 @@ class SCAFlawManager {
         }
     }
     /**
+     * Process SCA findings from Veracode API (JSON format) directly
+     */
+    captureSCAFlawDataFromAPI(findingsData, workItemDetails, importParameters, scanDetails) {
+        core.debug("Class Name: SCAFlawManager, Method Name: captureSCAFlawDataFromAPI");
+        const findings = findingsData._embedded?.findings || [];
+        console.log(`***Processing ${findings.length} SCA findings from API***`);
+        // Group findings by component
+        const componentsMap = new Map();
+        for (const finding of findings) {
+            const componentId = finding.finding_details?.component_id || 'unknown';
+            if (!componentsMap.has(componentId)) {
+                componentsMap.set(componentId, {
+                    component: finding.finding_details?.component || {},
+                    vulnerabilities: []
+                });
+            }
+            componentsMap.get(componentId).vulnerabilities.push(finding);
+        }
+        // Process each component
+        for (const [componentId, componentData] of componentsMap.entries()) {
+            const vulnerableComponent = this.populateComponentDataFromAPI(componentData.component, componentData.vulnerabilities);
+            if (vulnerableComponent && vulnerableComponent.Vulnerabilities.length > 0) {
+                console.log(`Vulnerabilities count: ${vulnerableComponent.Vulnerabilities.length}`);
+                vulnerableComponent.Vulnerabilities.forEach(vulnerability => {
+                    let flawData = new CommonData.FlawDto();
+                    if (vulnerability.IsMitigation) {
+                        flawData.MitigationStatus = CommonData.Constants.mitigation_Status_Accepted;
+                    }
+                    else {
+                        flawData.MitigationStatus = CommonData.Constants.mitigation_Status_None;
+                    }
+                    flawData.FlawAffectedbyPolicy = vulnerability.DoesAffectPolicy;
+                    vulnerability.FilePathList = vulnerableComponent.FilePathsList;
+                    this.commonHelper.filterWorkItemsByFlawType(flawData, this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion), workItemDetails, importParameters);
+                });
+            }
+        }
+    }
+    /**
+     * Populate component data from API findings
+     */
+    populateComponentDataFromAPI(component, vulnerabilities) {
+        core.debug("Class Name: SCAFlawManager, Method Name: populateComponentDataFromAPI");
+        const vulnerableComponent = new CommonData.VulnerableComponentDetailedReportDto();
+        vulnerableComponent.Library = component.library || '';
+        vulnerableComponent.ComponentId = component.component_id || '';
+        vulnerableComponent.Version = component.version || '';
+        // Extract file paths
+        vulnerableComponent.FilePathsList = component.file_paths || [];
+        // Convert vulnerabilities
+        vulnerableComponent.Vulnerabilities = [];
+        for (const vuln of vulnerabilities) {
+            const vulnerability = this.convertVulnerabilityFromAPI(vuln);
+            vulnerableComponent.Vulnerabilities.push(vulnerability);
+        }
+        return vulnerableComponent;
+    }
+    /**
+     * Convert API vulnerability JSON to ComponentVulnerability
+     */
+    convertVulnerabilityFromAPI(vulnerability) {
+        const details = vulnerability.finding_details || {};
+        const status = vulnerability.finding_status || {};
+        const vuln = new CommonData.ComponentVulnerability();
+        vuln.CveId = details.cve || '';
+        vuln.CveSummary = vulnerability.description || '';
+        vuln.CweId = details.cwe?.id?.toString() || '';
+        vuln.Severity = details.severity?.toString() || '5';
+        vuln.FirstFoundDate = status.first_found_date || '';
+        vuln.DoesAffectPolicy = vulnerability.violates_policy || false;
+        // Determine if mitigated based on annotations
+        vuln.IsMitigation = false;
+        vuln.MitigationType = '';
+        if (vulnerability.annotations && vulnerability.annotations.length > 0) {
+            const sortedAnnotations = vulnerability.annotations.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+            const latestAnnotation = sortedAnnotations[0];
+            if (latestAnnotation.action === 'APPROVED') {
+                vuln.IsMitigation = true;
+                vuln.MitigationType = latestAnnotation.action;
+            }
+        }
+        if (vuln.IsMitigation) {
+            vuln.MitigationCommentOnFlawClosure = `${CommonData.Constants.SCAMitigationCommentPrefix} ${vuln.MitigationType}`;
+        }
+        else {
+            vuln.MitigationCommentOnFlawClosure = "";
+        }
+        return vuln;
+    }
+    /**
      * Filter vulnerability from detailed report by flaw type and preapare flaws for work item creation
      * @param vulnerableComponentsList Vulnerability component list
      * @param vulnerabilityIndex Current vulnerability index
@@ -95111,6 +95305,144 @@ class StaticAndDynamicFlawManager {
         for (let i = 0; i < elementSeverityList.length; i++) {
             workItemDetails.SeverityDTOList.push(this.populateSeverityData(elementSeverityList[i], scanDetails, importParameters, workItemDetails));
         }
+    }
+    /**
+     * Process static findings from Veracode API (JSON format) directly
+     */
+    captureDASTAndSASTFlawDataFromAPI(findingsData, workItemDetails, scanDetails, importParameters) {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: captureDASTAndSASTFlawDataFromAPI");
+        const findings = findingsData._embedded?.findings || [];
+        console.log(`***Processing ${findings.length} static findings from API***`);
+        // Group findings by severity
+        const findingsBySeverity = new Map();
+        for (const finding of findings) {
+            const severity = finding.finding_details?.severity ?? 5;
+            if (!findingsBySeverity.has(severity)) {
+                findingsBySeverity.set(severity, []);
+            }
+            findingsBySeverity.get(severity).push(finding);
+        }
+        // Process each severity level
+        for (const [severityLevel, severityFindings] of findingsBySeverity.entries()) {
+            const severityData = this.populateSeverityDataFromAPI(severityLevel, severityFindings, scanDetails, importParameters, workItemDetails);
+            if (severityData) {
+                workItemDetails.SeverityDTOList.push(severityData);
+            }
+        }
+    }
+    /**
+     * Populate severity data from API findings
+     */
+    populateSeverityDataFromAPI(severityLevel, findings, scanDetails, importParameters, workItemsCreationData) {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: populateSeverityDataFromAPI");
+        const severityDetails = new CommonData.SeverityDetailedReportDto();
+        severityDetails.Level = severityLevel;
+        console.log(`Current Severity : ${severityDetails.Level}`);
+        // Group findings by category
+        const findingsByCategory = new Map();
+        for (const finding of findings) {
+            const categoryName = finding.finding_details?.finding_category?.name || 'Unknown';
+            if (!findingsByCategory.has(categoryName)) {
+                findingsByCategory.set(categoryName, []);
+            }
+            findingsByCategory.get(categoryName).push(finding);
+        }
+        // Process each category
+        for (const [categoryName, categoryFindings] of findingsByCategory.entries()) {
+            const categoryDetails = this.populateCategoryDataFromAPI(categoryName, categoryFindings, severityDetails, scanDetails, importParameters, workItemsCreationData);
+            if (categoryDetails) {
+                severityDetails.CategoryList.push(categoryDetails);
+            }
+        }
+        return severityDetails.CategoryList.length > 0 ? severityDetails : null;
+    }
+    /**
+     * Populate category data from API findings
+     */
+    populateCategoryDataFromAPI(categoryName, findings, sevData, scanDetails, importParameters, workItemsCreationData) {
+        core.debug("Class Name: StaticAndDynamicFlawManager, Method Name: populateCategoryDataFromAPI");
+        const categoryDetails = new CommonData.CategoryDetailedReportDto();
+        categoryDetails.CategoryName = categoryName;
+        console.log(`      Current Category Name : ${categoryDetails.CategoryName}`);
+        // Get CWE info from first finding (all findings in a category typically share the same CWE)
+        if (findings.length > 0 && findings[0].finding_details?.cwe) {
+            const cweInfo = findings[0].finding_details.cwe;
+            const cweDetails = new CommonData.cweDto();
+            cweDetails.CweId = cweInfo.id?.toString() || '';
+            cweDetails.CweName = cweInfo.name || '';
+            // Process all flaws in this category
+            for (const finding of findings) {
+                const flawDetails = this.convertFindingToFlawDto(finding);
+                cweDetails.FlawList.push(flawDetails);
+                // Generate work item data
+                const scanTypeAsTag = importParameters.ScanTypeTag ? "SAST" : "";
+                this.generateWorkItemData(flawDetails, cweDetails, categoryDetails, sevData, importParameters, scanDetails, workItemsCreationData, scanTypeAsTag);
+            }
+            categoryDetails.CweList.push(cweDetails);
+        }
+        return categoryDetails.CweList.length > 0 ? categoryDetails : null;
+    }
+    /**
+     * Convert API finding JSON to FlawDto
+     */
+    convertFindingToFlawDto(finding) {
+        const details = finding.finding_details || {};
+        const status = finding.finding_status || {};
+        const flawDetails = new CommonData.FlawDto();
+        flawDetails.IssueID = finding.issue_id ? parseInt(finding.issue_id.toString()) : 0;
+        flawDetails.CategoryName = details.finding_category?.name || '';
+        flawDetails.FlawDescription = finding.description || '';
+        flawDetails.FlawAffectedbyPolicy = finding.violates_policy || false;
+        flawDetails.Line = details.file_line_number?.toString() || '';
+        flawDetails.SourceFile = details.file_path || '';
+        flawDetails.Module = details.module || '';
+        flawDetails.AttackVector = details.attack_vector || '';
+        flawDetails.FlawType = CommonData.Constants.flawType_Static; // API findings are static
+        // Map mitigation status from annotations
+        let mitigationStatus = 'NEW';
+        let mitigationStatusDesc = 'New';
+        if (finding.annotations && finding.annotations.length > 0) {
+            // Sort by date, most recent first
+            const sortedAnnotations = finding.annotations.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+            const latestAnnotation = sortedAnnotations[0];
+            mitigationStatus = latestAnnotation.action || 'NEW';
+            mitigationStatusDesc = this.getMitigationStatusDescription(latestAnnotation.action);
+        }
+        else if (status.resolution_status) {
+            mitigationStatus = status.resolution_status;
+            mitigationStatusDesc = this.getMitigationStatusDescription(status.resolution_status);
+        }
+        flawDetails.MitigationStatus = mitigationStatus;
+        flawDetails.MitigationStatusDescription = mitigationStatusDesc;
+        flawDetails.RemediationStatus = status.resolution || 'UNRESOLVED';
+        // Convert annotations to comments
+        flawDetails.CommentsList = [];
+        if (finding.annotations && finding.annotations.length > 0) {
+            for (const annotation of finding.annotations) {
+                const comment = new CommonData.CommentsDTO();
+                comment.Date = annotation.created || '';
+                comment.Comment = `${annotation.created}: ${annotation.user_name}: ${annotation.action} <br> ${annotation.comment || ''}`;
+                flawDetails.CommentsList.push(comment);
+            }
+        }
+        return flawDetails;
+    }
+    /**
+     * Get mitigation status description from action
+     */
+    getMitigationStatusDescription(action) {
+        const statusMap = {
+            'APPROVED': 'Mitigation Approved',
+            'REJECTED': 'Mitigation Rejected',
+            'PROPOSED': 'Mitigation Proposed',
+            'COMMENT': 'Comment',
+            'FP': 'False Positive',
+            'APPDESIGN': 'Application Design',
+            'OSENV': 'Operating System Environment',
+            'NETENV': 'Network Environment',
+            'LIBRARY': 'Library'
+        };
+        return statusMap[action] || action;
     }
     /**
      * Extract xml based severity data and map same to  DTO
@@ -95674,11 +96006,20 @@ exports.StaticAndDynamicFlawManager = StaticAndDynamicFlawManager;
 
 /***/ }),
 
-/***/ 403:
+/***/ 499:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+/*******************************************************************************
+* Copyright (c) 2017 Veracode, Inc. All rights observed.
+*
+* Available for use by Veracode customers as described in the accompanying license agreement.
+*
+* Send bug reports or enhancement requests to support@veracode.com.
+*
+* See the license agreement for conditions on submitted materials.
+******************************************************************************/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -95713,7 +96054,390 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.VeracodeBridge = void 0;
+exports.VeracodeAPIClient = void 0;
+const core = __importStar(__nccwpck_require__(7484));
+const https = __importStar(__nccwpck_require__(5692));
+const http = __importStar(__nccwpck_require__(8611));
+const url_1 = __nccwpck_require__(7016);
+const VeracodeHMAC_1 = __nccwpck_require__(9605);
+const CommonData = __importStar(__nccwpck_require__(8802));
+// Try to use proxy agents if available
+let HttpsProxyAgent, HttpProxyAgent;
+try {
+    HttpsProxyAgent = __nccwpck_require__(4735);
+    HttpProxyAgent = __nccwpck_require__(8214);
+}
+catch (e) {
+    // Packages not available, will use direct connection
+    HttpsProxyAgent = null;
+    HttpProxyAgent = null;
+}
+/**
+ * Get proxy configuration from environment variables
+ */
+function getProxyConfig(targetUrl) {
+    const urlObj = new url_1.URL(targetUrl);
+    const isHttps = urlObj.protocol === 'https:';
+    // Check NO_PROXY
+    const noProxy = process.env.NO_PROXY || process.env.no_proxy || '';
+    if (noProxy) {
+        const noProxyList = noProxy.split(',').map(host => host.trim().toLowerCase());
+        const hostname = urlObj.hostname.toLowerCase();
+        if (noProxyList.some(proxy => hostname === proxy || hostname.endsWith('.' + proxy))) {
+            return null; // Don't use proxy for this host
+        }
+    }
+    // Get proxy URL from environment
+    const proxyUrl = isHttps
+        ? (process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy)
+        : (process.env.HTTP_PROXY || process.env.http_proxy);
+    if (!proxyUrl) {
+        return null;
+    }
+    try {
+        const proxy = new url_1.URL(proxyUrl);
+        return {
+            hostname: proxy.hostname,
+            port: parseInt(proxy.port) || (proxy.protocol === 'https:' ? 443 : 80),
+            protocol: proxy.protocol
+        };
+    }
+    catch (e) {
+        // Invalid proxy URL, ignore
+        return null;
+    }
+}
+/**
+ * Make an authenticated Veracode API request
+ */
+async function veracodeApiRequest(apiKeyId, apiKeySecret, method, url, queryParams = {}, debug = false) {
+    const urlObj = new url_1.URL(url);
+    const host = urlObj.hostname;
+    const path = urlObj.pathname;
+    // Build query string for the URL
+    const queryString = Object.keys(queryParams)
+        .filter(key => queryParams[key] !== undefined && queryParams[key] !== null)
+        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
+        .join('&');
+    // Build query string for signature
+    const queryStringForSignature = Object.keys(queryParams)
+        .filter(key => queryParams[key] !== undefined && queryParams[key] !== null)
+        .map(key => `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`)
+        .join('&');
+    const urlQueryParams = queryStringForSignature ? `?${queryStringForSignature}` : '';
+    // Generate authorization header
+    if (debug) {
+        core.debug(`Generating authorization header for: ${host}, ${path}, ${urlQueryParams}, ${method}`);
+    }
+    const authorization = (0, VeracodeHMAC_1.calculateAuthorizationHeader)(apiKeyId, apiKeySecret, host, path, urlQueryParams, method);
+    const fullPath = queryString ? `${path}?${queryString}` : path;
+    // Choose http or https module
+    const httpModule = urlObj.protocol === 'https:' ? https : http;
+    const isHttps = urlObj.protocol === 'https:';
+    // Get proxy configuration
+    const proxyConfig = getProxyConfig(url);
+    return new Promise((resolve, reject) => {
+        const options = {
+            hostname: urlObj.hostname,
+            port: urlObj.port || (isHttps ? 443 : 80),
+            path: fullPath,
+            method: method,
+            headers: {
+                'Authorization': authorization,
+                'Content-Type': 'application/json',
+                'Host': urlObj.host
+            }
+        };
+        if (debug) {
+            core.debug(`Request options: ${JSON.stringify(options)}`);
+        }
+        // Configure proxy agent if proxy is detected
+        if (proxyConfig) {
+            const proxyUrl = `${proxyConfig.protocol}//${proxyConfig.hostname}:${proxyConfig.port}`;
+            if (isHttps && HttpsProxyAgent) {
+                options.agent = new HttpsProxyAgent(proxyUrl);
+            }
+            else if (!isHttps && HttpProxyAgent) {
+                options.agent = new HttpProxyAgent(proxyUrl);
+            }
+            else if (proxyConfig && (!HttpsProxyAgent || !HttpProxyAgent)) {
+                core.warning(`Proxy detected but proxy agent packages not available. Install them for proxy support: npm install https-proxy-agent http-proxy-agent`);
+            }
+        }
+        const req = httpModule.request(options, (res) => {
+            let data = '';
+            res.on('data', (chunk) => {
+                data += chunk.toString();
+            });
+            res.on('end', () => {
+                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+                    try {
+                        const jsonData = JSON.parse(data);
+                        if (debug) {
+                            core.debug(`Response: ${JSON.stringify(jsonData)}`);
+                        }
+                        resolve(jsonData);
+                    }
+                    catch (parseError) {
+                        reject(new Error(`Failed to parse JSON response: ${parseError.message}`));
+                    }
+                }
+                else {
+                    let errorMessage = `Veracode API error: ${res.statusCode} ${res.statusMessage}`;
+                    try {
+                        const errorData = JSON.parse(data);
+                        errorMessage += ` - ${JSON.stringify(errorData)}`;
+                    }
+                    catch (e) {
+                        errorMessage += ` - ${data}`;
+                    }
+                    reject(new Error(errorMessage));
+                }
+            });
+        });
+        req.on('error', (error) => {
+            reject(new Error(`Veracode API request failed: ${error.message}`));
+        });
+        req.end();
+    });
+}
+/**
+ * Find application profile by name (exact match)
+ */
+async function findApplicationProfile(apiKeyId, apiKeySecret, profileName, debug = false) {
+    const url = 'https://api.veracode.com/appsec/v1/applications';
+    const response = await veracodeApiRequest(apiKeyId, apiKeySecret, 'GET', url, { name: profileName }, debug);
+    if (!response._embedded || !response._embedded.applications) {
+        throw new Error(`No applications found for profile name: ${profileName}`);
+    }
+    // Find exact match
+    const exactMatch = response._embedded.applications.find((app) => app.profile.name === profileName);
+    if (!exactMatch) {
+        throw new Error(`No exact match found for profile name: ${profileName}. Found ${response._embedded.applications.length} profiles starting with this name.`);
+    }
+    return {
+        guid: exactMatch.guid,
+        name: exactMatch.profile.name,
+        id: exactMatch.id
+    };
+}
+/**
+ * Find sandbox by name (exact match)
+ */
+async function findSandbox(apiKeyId, apiKeySecret, applicationGuid, sandboxName, debug = false) {
+    const url = `https://api.veracode.com/appsec/v1/applications/${applicationGuid}/sandboxes`;
+    const response = await veracodeApiRequest(apiKeyId, apiKeySecret, 'GET', url, {}, debug);
+    if (!response._embedded || !response._embedded.sandboxes) {
+        throw new Error(`No sandboxes found for application: ${applicationGuid}`);
+    }
+    // Find exact match
+    const exactMatch = response._embedded.sandboxes.find((sandbox) => sandbox.name === sandboxName);
+    if (!exactMatch) {
+        throw new Error(`No exact match found for sandbox name: ${sandboxName}. Found ${response._embedded.sandboxes.length} sandboxes.`);
+    }
+    return {
+        guid: exactMatch.guid,
+        name: exactMatch.name,
+        id: exactMatch.id
+    };
+}
+/**
+ * Get all static findings (handles pagination)
+ */
+async function getAllStaticFindings(apiKeyId, apiKeySecret, applicationGuid, sandboxGuid = null, importType, debug = false) {
+    const size = 20;
+    let page = 0;
+    let allFindings = [];
+    let totalPages = 1;
+    // Determine query parameters based on import type
+    const baseParams = {
+        scan_type: 'STATIC',
+        include_annot: 'TRUE',
+        page: page,
+        size: size
+    };
+    // Add violates_policy filter based on import type
+    if (importType.includes('Violating Policy')) {
+        baseParams.violates_policy = 'True';
+    }
+    // Add context if sandbox
+    if (sandboxGuid) {
+        baseParams.context = sandboxGuid;
+    }
+    do {
+        baseParams.page = page;
+        const url = `https://api.veracode.com/appsec/v2/applications/${applicationGuid}/findings`;
+        const response = await veracodeApiRequest(apiKeyId, apiKeySecret, 'GET', url, baseParams, debug);
+        if (page === 0) {
+            totalPages = response.page?.total_pages || 1;
+        }
+        if (response._embedded && response._embedded.findings) {
+            allFindings = allFindings.concat(response._embedded.findings);
+        }
+        page++;
+    } while (page < totalPages);
+    // Return in the same format as a single page response
+    return {
+        _embedded: {
+            findings: allFindings
+        },
+        page: {
+            size: allFindings.length,
+            total_elements: allFindings.length,
+            total_pages: 1,
+            number: 0
+        },
+        _links: sandboxGuid ? {} : {}
+    };
+}
+/**
+ * Get all SCA findings (handles pagination)
+ */
+async function getAllSCAFindings(apiKeyId, apiKeySecret, applicationGuid, sandboxGuid = null, debug = false) {
+    const size = 20;
+    let page = 0;
+    let allFindings = [];
+    let totalPages = 1;
+    do {
+        const baseParams = {
+            scan_type: 'SCA',
+            page: page,
+            size: size
+        };
+        if (sandboxGuid) {
+            baseParams.context = sandboxGuid;
+        }
+        const url = `https://api.veracode.com/appsec/v2/applications/${applicationGuid}/findings`;
+        const response = await veracodeApiRequest(apiKeyId, apiKeySecret, 'GET', url, baseParams, debug);
+        if (page === 0) {
+            totalPages = response.page?.total_pages || 1;
+        }
+        if (response._embedded && response._embedded.findings) {
+            allFindings = allFindings.concat(response._embedded.findings);
+        }
+        page++;
+    } while (page < totalPages);
+    // Return in the same format as a single page response
+    return {
+        _embedded: {
+            findings: allFindings
+        },
+        page: {
+            size: allFindings.length,
+            total_elements: allFindings.length,
+            total_pages: 1,
+            number: 0
+        },
+        _links: sandboxGuid ? {} : {}
+    };
+}
+/**
+ * Veracode API Client - replaces VeracodeBridge
+ */
+class VeracodeAPIClient {
+    constructor(importParameters) {
+        this.commonHelper = new CommonData.CommonHelper();
+        this.failBuildIfFlawImporterBuildStepFails = importParameters.FailBuildIfFlawImporterBuildStepFails;
+        this.apiKeyId = importParameters.VID;
+        this.apiKeySecret = importParameters.VKey;
+        this.debug = importParameters.IsDebugEnabled;
+        // Set proxy environment variables if configured
+        if (importParameters.Phost && importParameters.Pport) {
+            const proxyUrl = importParameters.Puser && importParameters.Ppassword
+                ? `http://${importParameters.Puser}:${importParameters.Ppassword}@${importParameters.Phost}:${importParameters.Pport}`
+                : `http://${importParameters.Phost}:${importParameters.Pport}`;
+            process.env.HTTP_PROXY = proxyUrl;
+            process.env.HTTPS_PROXY = proxyUrl;
+        }
+    }
+    /**
+     * Get application and sandbox information
+     */
+    async getAppInfo(scanDetails, importParameters) {
+        core.debug("Class Name: VeracodeAPIClient, Method Name: getAppInfo");
+        try {
+            core.info("Start Obtaining App Info via API");
+            // Find application profile
+            const profileInfo = await findApplicationProfile(this.apiKeyId, this.apiKeySecret, importParameters.VeracodeAppProfile, this.debug);
+            scanDetails.Appid = profileInfo.guid;
+            scanDetails.AppName = profileInfo.name;
+            // Find sandbox if specified
+            if (importParameters.SandboxName) {
+                const sandboxInfo = await findSandbox(this.apiKeyId, this.apiKeySecret, profileInfo.guid, importParameters.SandboxName, this.debug);
+                scanDetails.SandboxId = sandboxInfo.guid;
+                scanDetails.SandboxName = sandboxInfo.name;
+            }
+            core.info(`Found application: ${scanDetails.AppName} (GUID: ${scanDetails.Appid})`);
+            if (scanDetails.SandboxName) {
+                core.info(`Found sandbox: ${scanDetails.SandboxName} (GUID: ${scanDetails.SandboxId})`);
+            }
+            return scanDetails;
+        }
+        catch (error) {
+            this.commonHelper.handleError(error, "Failed to get application info from Veracode API", this.failBuildIfFlawImporterBuildStepFails);
+            return null;
+        }
+    }
+    /**
+     * Get latest scan/build information
+     * For API-based approach, we don't need a separate "build" - we work directly with findings
+     */
+    async getLatestBuild(scanDetails, importParameters) {
+        core.debug("Class Name: VeracodeAPIClient, Method Name: getLatestBuild");
+        try {
+            // For API-based approach, we use the application GUID as the "build ID"
+            // The actual findings will be fetched separately
+            scanDetails.BuildId = scanDetails.Appid;
+            scanDetails.BuildName = `API-${scanDetails.AppName}`;
+            return scanDetails;
+        }
+        catch (error) {
+            this.commonHelper.handleError(error, "Failed to get latest build info", this.failBuildIfFlawImporterBuildStepFails);
+            return null;
+        }
+    }
+    /**
+     * Get findings data based on scan type
+     * Returns findings in a format compatible with the existing FlawManager
+     */
+    async getFindingsData(scanDetails, importParameters) {
+        core.debug("Class Name: VeracodeAPIClient, Method Name: getFindingsData");
+        try {
+            const scanType = importParameters.ScanType;
+            const result = {};
+            // Determine which scan types to fetch
+            const fetchStatic = scanType === 'Static Analysis' || scanType === 'Static Analysis and SCA';
+            const fetchSCA = scanType === 'Software Composition Analysis (SCA)' || scanType === 'Static Analysis and SCA';
+            if (fetchStatic) {
+                core.info("Fetching static findings from Veracode API...");
+                const staticFindings = await getAllStaticFindings(this.apiKeyId, this.apiKeySecret, scanDetails.Appid, scanDetails.SandboxId || null, importParameters.ImportType, this.debug);
+                result.staticFindings = staticFindings;
+                core.info(`Fetched ${staticFindings._embedded?.findings?.length || 0} static findings`);
+            }
+            if (fetchSCA) {
+                core.info("Fetching SCA findings from Veracode API...");
+                const scaFindings = await getAllSCAFindings(this.apiKeyId, this.apiKeySecret, scanDetails.Appid, scanDetails.SandboxId || null, this.debug);
+                result.scaFindings = scaFindings;
+                core.info(`Fetched ${scaFindings._embedded?.findings?.length || 0} SCA findings`);
+            }
+            return result;
+        }
+        catch (error) {
+            this.commonHelper.handleError(error, "Failed to get findings data from Veracode API", this.failBuildIfFlawImporterBuildStepFails);
+            return null;
+        }
+    }
+}
+exports.VeracodeAPIClient = VeracodeAPIClient;
+
+
+/***/ }),
+
+/***/ 9605:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
 /*******************************************************************************
 * Copyright (c) 2017 Veracode, Inc. All rights observed.
 *
@@ -95723,666 +96447,75 @@ exports.VeracodeBridge = void 0;
 *
 * See the license agreement for conditions on submitted materials.
 ******************************************************************************/
-/// <reference types="q" />
-const core = __importStar(__nccwpck_require__(7484));
-const exec = __importStar(__nccwpck_require__(5236));
-const fs = __importStar(__nccwpck_require__(9896));
-const path = __importStar(__nccwpck_require__(6928));
-const Facilitator = __importStar(__nccwpck_require__(8802));
-let xmlDom = (__nccwpck_require__(8351).DOMParser);
-/**
- * Perform intermediates actions to link VSTS and Veracode platform via JAVA API
- */
-class VeracodeBridge {
-    constructor(importParameters) {
-        this.commonHelper = new Facilitator.CommonHelper();
-        this.failBuildIfFlawImporterBuildStepFails = importParameters.FailBuildIfFlawImporterBuildStepFails;
-        process.env[Facilitator.Constants.VIdVariable] = importParameters.VID;
-        process.env[Facilitator.Constants.VKeyVariable] = importParameters.VKey;
-        if (importParameters.Phost && importParameters.Pport) {
-            process.env[Facilitator.Constants.ProxyVariable] = this.generateProxyString(importParameters);
-        }
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
-    /**
-     * Execute Java command and return result
-     */
-    async executeJavaCommand(args) {
-        let stdout = '';
-        let stderr = '';
-        let exitCode = 0;
-        let error;
-        try {
-            exitCode = await exec.exec('java', args, {
-                listeners: {
-                    stdout: (data) => {
-                        stdout += data.toString();
-                    },
-                    stderr: (data) => {
-                        stderr += data.toString();
-                    }
-                },
-                silent: true
-            });
-        }
-        catch (err) {
-            error = err instanceof Error ? err : new Error(String(err));
-            exitCode = 1;
-        }
-        return { code: exitCode, stdout, stderr, error };
-    }
-    //--Public methods--//
-    /**
-     * Retrieve Application details from veracode platform according to user provided app ID
-     * @param {Facilitator.ScanDto} scanDetails - Consists of details required to obtain app information.
-     * @param {Facilitator.FlawImporterParametersDto} importParameters - All parameters required to call wrapper methods.
-     */
-    async getAppInfo(scanDetails, importParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getAppInfo");
-        try {
-            console.log("Start Obtaining App Info");
-            const args = [
-                '-jar',
-                importParameters.VeracodeAPIWrapper,
-                '-action',
-                importParameters.ApiAction
-            ];
-            if (importParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const applistData = await this.executeJavaCommand(args);
-            core.debug(`Response Code: ${applistData.code}`);
-            if (applistData.code == 2) {
-                if (applistData.stderr.includes(Facilitator.Constants.InvalidCredentialsPrefix)) {
-                    this.commonHelper.handleError(null, `${Facilitator.Constants.PlatformAccessError} ${Facilitator.Constants.InvalidCredentialsPrefix}`, this.failBuildIfFlawImporterBuildStepFails);
-                }
-                else {
-                    this.commonHelper.handleError(null, Facilitator.Constants.PlatformAccessError, this.failBuildIfFlawImporterBuildStepFails);
-                }
-                return null;
-            }
-            if (applistData.stderr.length > 0) {
-                core.debug("Following messages received while obtaining application details");
-                core.debug(applistData.stderr);
-            }
-            if (applistData.error) {
-                console.log("Errors occurred while trying to access Veracode platform");
-                this.displayPlatformConnectivityIssueMessage();
-                core.debug(`Error Name: ${applistData.error.name}`);
-                core.debug(`Error Message: ${applistData.error.message}`);
-                core.debug(`Error Stack: ${applistData.error.stack}`);
-                this.commonHelper.handleError(null, Facilitator.Constants.PlatformAccessError, this.failBuildIfFlawImporterBuildStepFails);
-                return null;
-            }
-            // obtain result object and map details to dto
-            let applistDataXmlDoc;
-            let applistParser = new xmlDom();
-            applistDataXmlDoc = applistParser.parseFromString(applistData.stdout, 'text/xml');
-            this.retrieveApplicationDetails(applistDataXmlDoc, importParameters, scanDetails);
-            this.performApplicationAvailabilityValidation(scanDetails);
-            console.log("End Obtaining App Info");
-            return scanDetails;
-        }
-        catch (error) {
-            this.displayPlatformConnectivityIssueMessage();
-            this.commonHelper.handleError(error, "Error occurred while obtaining application information", this.failBuildIfFlawImporterBuildStepFails);
-            return null;
-        }
-    }
-    /**
-     * Checks whether required application data available
-     * @param scanDetails - Scan details
-     */
-    performApplicationAvailabilityValidation(scanDetails) {
-        core.debug("Class Name: VeracodeBridge, Method Name: performApplicationAvailabilityValidation");
-        if (scanDetails.Appid != undefined || scanDetails.Appid != null) {
-            console.log(`App ID: ${scanDetails.Appid} App Name: ${scanDetails.AppName}`);
-        }
-        else {
-            console.log("Problem occurred while accessing application name \n" +
-                "Please make sure that either one of following is true, \n" +
-                "1. Application with given name available in Veracode account.");
-            this.commonHelper.handleError(null, "Invalid application name", this.failBuildIfFlawImporterBuildStepFails);
-        }
-    }
-    /**
-     * Retrieve Sandbox details from veracode platform according to user provided app ID
-     * @param {string} appID - Application ID
-     * @param {Facilitator.FlawImporterParametersDto} importerParameters - All parameters required to call Wrapper Methods.
-     */
-    async getSandboxInfo(appID, importParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getSandboxInfo");
-        try {
-            console.log("Start Obtaining Sandbox Info");
-            const args = [
-                '-jar',
-                importParameters.VeracodeAPIWrapper,
-                '-action',
-                importParameters.ApiAction,
-                '-appid',
-                appID
-            ];
-            if (importParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const sandboxlistData = await this.executeJavaCommand(args);
-            if (sandboxlistData.stderr.length > 0) {
-                core.debug("Following Messages Received While Obtaining Sandbox Details");
-                core.debug(sandboxlistData.stderr);
-            }
-            if (sandboxlistData.error) {
-                core.debug(`Error Name: ${sandboxlistData.error.name}`);
-                core.debug(`Error Message: ${sandboxlistData.error.message}`);
-                core.debug(`Error Stack: ${sandboxlistData.error.stack}`);
-                this.commonHelper.handleError(null, "Obtaining sandbox list failed", this.failBuildIfFlawImporterBuildStepFails);
-            }
-            // obtain result object and map details to dto 
-            let sandboxlistDataXmlDoc;
-            let sandboxlistParser = new xmlDom();
-            sandboxlistDataXmlDoc = sandboxlistParser.parseFromString(sandboxlistData.stdout, 'text/xml');
-            this.retrieveSandboxDetails(sandboxlistDataXmlDoc, importParameters);
-            console.log(` Sandbox ID: ${importParameters.SandboxId} \n Sandbox Name : ${importParameters.SandboxName} \n End Obtaining Sandbox Info`);
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while obtaining sandbox information", this.failBuildIfFlawImporterBuildStepFails);
-        }
-    }
-    /**
-     * Retrieve BuildInfo from veracode platform*
-     * @param {Facilitator.FlawImporterParametersDto} importParameters - All parameters required to call Wrapper Methods.
-     * @param {string} appID - application ID
-     * @param {string} buildId - Build Id of the scan.
-     * @return {Facilitator.ScanDto} - Scan details
-     */
-    async getBuildDetailsbyId(importParameters, scanDetails, buildId) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getBuildDetailsbyId");
-        try {
-            let currentScanDetails = new Facilitator.ScanDto();
-            console.log("Start Obtaining Build Info");
-            const args = [
-                '-jar',
-                importParameters.VeracodeAPIWrapper,
-                '-action',
-                importParameters.ApiAction,
-                '-appid',
-                scanDetails.Appid,
-                '-buildid',
-                buildId
-            ];
-            if (importParameters.SandboxId) {
-                args.push('-sandboxid');
-                args.push(importParameters.SandboxId);
-            }
-            if (importParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const buildDetails = await this.executeJavaCommand(args);
-            if (buildDetails.stderr.length > 0) {
-                core.debug("Following Messages Received While Obtaining Build Details");
-                core.debug(buildDetails.stderr);
-            }
-            if (buildDetails.error) {
-                core.debug(`Error Name: ${buildDetails.error.name}`);
-                core.debug(`Error Message: ${buildDetails.error.message}`);
-                core.debug(`Error Stack: ${buildDetails.error.stack}`);
-                return currentScanDetails;
-            }
-            // obtain result object and map details to dto
-            let xmlDoc;
-            let parser = new xmlDom();
-            xmlDoc = parser.parseFromString(buildDetails.stdout, 'text/xml');
-            let elementAU = xmlDoc.getElementsByTagName('analysis_unit')[0];
-            currentScanDetails.BuildStatus = elementAU.getAttribute('status');
-            currentScanDetails.AnalysisType = elementAU.getAttribute('analysis_type');
-            currentScanDetails.PublishedDate = elementAU.getAttribute('published_date');
-            let elementBuild = xmlDoc.getElementsByTagName('build')[0];
-            currentScanDetails.BuildId = elementBuild.getAttribute('build_id');
-            let elementBuildInfo = xmlDoc.getElementsByTagName('buildinfo')[0];
-            currentScanDetails.AccountID = elementBuildInfo.getAttribute('account_id');
-            currentScanDetails.Appid = scanDetails.Appid;
-            currentScanDetails.ResultPageURL = `${Facilitator.Constants.request_Prefix}${scanDetails.AnalysisCenterUrl}${Facilitator.Constants.veracodePlatformResultPage_Infix}${currentScanDetails.AccountID}:${currentScanDetails.Appid}:${currentScanDetails.BuildId}`;
-            console.log(`Build ID: ${currentScanDetails.BuildId}`);
-            console.log("End Obtaining Build Info");
-            return currentScanDetails;
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while obtaining build information", this.failBuildIfFlawImporterBuildStepFails);
-            return new Facilitator.ScanDto();
-        }
-    }
-    /**
-     * Download detail report data to defined location ,
-     * read data in it and send back
-     * @param {string} buildID - build which we reprecent detail report
-     * @param {Facilitator.FlawImporterParametersDto} importerParameters - All parameters required to call Wrapper Methods.
-     */
-    async downloadAndReadDetailedReportData(buildID, importParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: downloadAndReadDetailedReportData");
-        try {
-            console.log("Started retrieving detailed flaw data");
-            let folderLocation = Facilitator.Constants.detailedReportFolderLocation;
-            let fullPath = path.join(folderLocation, Facilitator.Constants.detailedReportFileName);
-            fs.mkdirSync(folderLocation, { recursive: true });
-            const args = [
-                '-jar',
-                importParameters.VeracodeAPIWrapper,
-                '-action',
-                importParameters.ApiAction,
-                '-buildid',
-                buildID,
-                '-outputfilepath',
-                fullPath
-            ];
-            if (importParameters.SandboxId) {
-                args.push('-sandboxid');
-                args.push(importParameters.SandboxId);
-            }
-            if (importParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const detailedReportResult = await this.executeJavaCommand(args);
-            if (detailedReportResult.stderr.length > 0) {
-                core.debug("Following messages received while downloading report from Analysiscenter");
-                core.debug(detailedReportResult.stderr);
-                if (detailedReportResult.stderr.includes(Facilitator.Constants.ServerReturnedHTTPResponseCode524)) {
-                    this.commonHelper.handleError(null, Facilitator.Constants.ServerReturnedHTTPResponseCode524, this.failBuildIfFlawImporterBuildStepFails);
-                }
-            }
-            if (detailedReportResult.error) {
-                core.debug(`Error Name : ${detailedReportResult.error.name}`);
-                core.debug(`Error Message : ${detailedReportResult.error.message}`);
-                core.debug(`Error Stack : ${detailedReportResult.error.stack}`);
-                this.commonHelper.handleError(null, "Obtaining detailed flaw details failed", this.failBuildIfFlawImporterBuildStepFails);
-            }
-            // Read file and obtain data as string
-            try {
-                const data = fs.readFileSync(fullPath, 'utf8');
-                console.log('Successfully retrieved detailed flaw details');
-                return data;
-            }
-            catch (err) {
-                console.log(`Error: ${err}`);
-                this.commonHelper.handleError(null, "Obtaining detailed flaw details failed", this.failBuildIfFlawImporterBuildStepFails);
-                throw err;
-            }
-        }
-        catch (ex) {
-            throw ex;
-        }
-    }
-    /**
-     * Get Analysis center URL based on provided credentials
-     * @param {Facilitator.ScanParametersDto} importerParameters - All parameters required to call Wrapper Methods.
-     * @return {string} - Send Analysis center URL
-     */
-    async getAnalysisCenterUrl(importerParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getAnalysisCenterUrl");
-        try {
-            console.log("Start obtaining region details");
-            const args = [
-                '-jar',
-                importerParameters.VeracodeAPIWrapper,
-                '-action',
-                Facilitator.Constants.apiAction_GetRegion
-            ];
-            if (importerParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const regionData = await this.executeJavaCommand(args);
-            if (regionData.stderr.length > 0) {
-                core.debug("Following messages received while trying to get Analysis Center URL");
-                core.debug(regionData.stderr);
-            }
-            if (regionData.error) {
-                console.log("Get Analysis Center URL Failed");
-                core.debug(`Error Name: ${regionData.error.name}`);
-                core.debug(`Error Message: ${regionData.error.message}`);
-                core.debug(`Error Stack: ${regionData.error.stack}`);
-                return Facilitator.Constants.string_Empty;
-            }
-            // obtain result string
-            let platformUrl;
-            if (importerParameters.IsDebugEnabled) {
-                let jsonStart = regionData.stdout.indexOf("{");
-                let jsonEnd = regionData.stdout.indexOf("}");
-                platformUrl = JSON.parse(regionData.stdout.substring(jsonStart, jsonEnd + 1));
-            }
-            else {
-                platformUrl = JSON.parse(regionData.stdout);
-            }
-            console.log(`Platform URL is: ${platformUrl.xmlApiHost}`);
-            return platformUrl.xmlApiHost || '';
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while obtaining platform URL", this.failBuildIfFlawImporterBuildStepFails);
-            return '';
-        }
-    }
-    /**
-     * Obtain latest scan details of policy or sandbox scan
-     * @param scanDetails - Scan details
-     * @param importParameters - User imputs
-     * @returns - Latest scan details
-     */
-    async getLatestBuild(scanDetails, importParameters) {
-        if (!importParameters.SandboxName) {
-            return await this.getLatestPolicyScanDetailsByApplicationId(scanDetails, importParameters);
-        }
-        else {
-            return await this.getLatestSandboxScanDetails(scanDetails, importParameters);
-        }
-    }
-    //--End Public methods--//
-    //-- Private methods--//
-    /**
-     * Get latest scan details of given sandbox
-     * @param scanDetails - Scan details
-     * @param importerParameters - User inputs
-     * @returns - Latest scan details of given sandbox
-     */
-    async getLatestSandboxScanDetails(scanDetails, importerParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getLatestSandboxScanDetails");
-        try {
-            console.log("Start obtaining build list");
-            importerParameters.ApiAction = Facilitator.Constants.apiAction_GetBuildList;
-            const args = [
-                '-jar',
-                importerParameters.VeracodeAPIWrapper,
-                '-action',
-                importerParameters.ApiAction,
-                '-appid',
-                scanDetails.Appid
-            ];
-            if (importerParameters.SandboxId) {
-                args.push('-sandboxid');
-                args.push(importerParameters.SandboxId);
-            }
-            if (importerParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const buildListData = await this.executeJavaCommand(args);
-            if (buildListData.stderr.length > 0) {
-                core.debug("Following messages received while obtaining build list");
-                core.debug(buildListData.stderr);
-            }
-            if (buildListData.error) {
-                core.debug(`Error Name: ${buildListData.error.name}`);
-                core.debug(`Error Message: ${buildListData.error.message}`);
-                core.debug(`Error Stack: ${buildListData.error.stack}`);
-                this.commonHelper.handleError(null, "Obtaining build list failed.", this.failBuildIfFlawImporterBuildStepFails);
-            }
-            // obtain result object and map details to string list
-            let buildIdList = [];
-            let scanlistDataXmlDoc;
-            let buildlistParser = new xmlDom();
-            let buildlist = new Array();
-            scanlistDataXmlDoc = buildlistParser.parseFromString(buildListData.stdout, 'text/xml');
-            this.extractFullBuildIdListFromXMLDocument(buildIdList, scanlistDataXmlDoc);
-            // populated build info list
-            for (const buildId of buildIdList) {
-                console.log(`Obtaining details related to build ID: ${buildId}`);
-                importerParameters.ApiAction = Facilitator.Constants.apiAction_GetBuildInfo;
-                let scanData = await this.getBuildDetailsbyId(importerParameters, scanDetails, buildId);
-                buildlist.push(scanData);
-            }
-            console.log("End obtaining build list");
-            return this.obtainLatestBuildoutofBuildList(buildlist);
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred during manipulating build list", this.failBuildIfFlawImporterBuildStepFails);
-            return new Facilitator.ScanDto();
-        }
-    }
-    /**
-     * Extract build Ids from XML document
-     * @param buildIdList build Id list
-     * @param scanlistDataXmlDoc build list XML data
-     * @returns list of build Ids
-     */
-    extractFullBuildIdListFromXMLDocument(buildIdList, scanlistDataXmlDoc) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getFullBuildList");
-        try {
-            let buildlistElements = scanlistDataXmlDoc.getElementsByTagName('build');
-            let listNumber = 0;
-            for (let i = buildlistElements.length; i > 0; i--) {
-                buildIdList[listNumber] = buildlistElements[i - 1].getAttribute('build_id');
-                listNumber++;
-            }
-            core.debug("buildList :" + buildIdList);
-            return buildIdList;
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while mapping build information", this.failBuildIfFlawImporterBuildStepFails);
-        }
-    }
-    /**
-     * Retrieve all Build ids in Application according to provided Applid from veracode platform
-     * @param {Facilitator.ScanDto} scanDetails - scan details.
-     * @param {Facilitator.FlawImporterParametersDto} importerParameters - All parameters required to call Wrapper Methods.
-     * @return {Facilitator.ScanDto} -  details of latest scan
-     */
-    async getLatestPolicyScanDetailsByApplicationId(scanDetails, importerParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getLatestScanDetailsByApplicationId");
-        try {
-            console.log("Start obtaining latest build");
-            importerParameters.ApiAction = Facilitator.Constants.apiAction_GetApplist;
-            const args = [
-                '-jar',
-                importerParameters.VeracodeAPIWrapper,
-                '-action',
-                importerParameters.ApiAction,
-                '-rest',
-                '-appid',
-                scanDetails.Appid
-            ];
-            if (importerParameters.IsDebugEnabled) {
-                args.push('-debug');
-                args.push(Facilitator.Constants.status_True_LowerCase);
-            }
-            args.push('-useragent');
-            args.push(this.getDefaultUserAgentHeaderValue());
-            const applicationScanData = await this.executeJavaCommand(args);
-            if (applicationScanData.stderr.length > 0) {
-                core.debug("Following messages received while obtaining application scan details");
-                core.debug(applicationScanData.stderr);
-            }
-            if (applicationScanData.error) {
-                core.debug(`Error Name: ${applicationScanData.error.name}`);
-                core.debug(`Error Message: ${applicationScanData.error.message}`);
-                core.debug(`Error Stack: ${applicationScanData.error.stack}`);
-                this.commonHelper.handleError(null, "Obtaining application scan details failed.", this.failBuildIfFlawImporterBuildStepFails);
-            }
-            let appScanObj;
-            if (importerParameters.IsDebugEnabled) {
-                let jsonStart = applicationScanData.stdout.indexOf("[{");
-                let jsonEnd = applicationScanData.stdout.lastIndexOf("}]");
-                appScanObj = JSON.parse(applicationScanData.stdout.substring(jsonStart, jsonEnd + 2));
-            }
-            else {
-                appScanObj = JSON.parse(applicationScanData.stdout);
-            }
-            let buildIdList = [];
-            let buildlist = new Array();
-            this.getLatestBuildIdList(buildIdList, appScanObj[0]);
-            // populated build info list
-            for (const buildId of buildIdList) {
-                console.log(`Obtaining details related to build ID: ${buildId}`);
-                importerParameters.ApiAction = Facilitator.Constants.apiAction_GetBuildInfo;
-                let scanData = await this.getBuildDetailsbyId(importerParameters, scanDetails, buildId);
-                buildlist.push(scanData);
-            }
-            return this.obtainLatestBuildoutofBuildList(buildlist);
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Obtaining application scan details failed.", this.failBuildIfFlawImporterBuildStepFails);
-            return new Facilitator.ScanDto();
-        }
-    }
-    /**
-     * Select latest Build by published date and build status ("result ready"")
-     * @param {string[]} buildList - Builds data of all the builds in scan
-     * @return {Facilitator.ScanDto} - Latest build in result ready status
-     */
-    obtainLatestBuildoutofBuildList(buildlist) {
-        core.debug("Class Name: VeracodeBridge, Method Name: obtainLatestBuildoutofBuildList");
-        let latestScan = new Facilitator.ScanDto();
-        try {
-            console.log("Start filtering the latest build");
-            buildlist = buildlist.filter(e => e.BuildStatus == Facilitator.Constants.BuildStatus_resultsready);
-            console.log(`Total latest scans: ${buildlist.length}`);
-            //Sort by the publish date descending
-            buildlist.sort(function (x, y) {
-                let dateOne = new Date(x.PublishedDate).getTime();
-                let dateTwo = new Date(y.PublishedDate).getTime();
-                return dateOne > dateTwo ? -1 : dateOne < dateTwo ? 1 : 0;
-            });
-            console.log("Listing down the sorted and result ready build list");
-            buildlist.forEach(element => {
-                console.log(`Build: ${element.BuildId} Published date: ${new Date(element.PublishedDate).getTime()} Build status: ${element.BuildStatus} Analysis type: ${element.AnalysisType}`);
-            });
-            if (null != buildlist && buildlist.length > 0) {
-                latestScan = buildlist[0];
-            }
-            if (!latestScan || !latestScan.BuildId) {
-                console.info("For Current Application, There is no Builds Found in Result Ready Status");
-            }
-            else {
-                console.log(`Build ID in 'Result Ready' Status with Latest Published Date : ${latestScan.BuildId}`);
-                console.log("End Filtering the Latest Build");
-            }
-            return latestScan;
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while trying to filter latest build", this.failBuildIfFlawImporterBuildStepFails);
-            return latestScan;
-        }
-    }
-    /**
-     * Get list of build ids
-     * @param {string[]} buildList - Build ids
-     * @param {any} appScanObj  - latest scan details of the application
-     * @return {string[]} - Build Ids
-     */
-    getLatestBuildIdList(buildList, appScanObj) {
-        core.debug("Class Name: VeracodeBridge, Method Name: getLatestBuildIdList");
-        try {
-            for (let index = 0; index < appScanObj.scans.length; index++) {
-                buildList[index] = appScanObj.scans[index].scan_url.split(":")[3];
-            }
-            core.debug("buildList :" + buildList);
-            return buildList;
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while mapping build information", this.failBuildIfFlawImporterBuildStepFails);
-            return buildList;
-        }
-    }
-    /**
-     * Provide metadata about the task
-     */
-    getDefaultUserAgentHeaderValue() {
-        core.debug("Class Name: VeracodeBridge, Method Name: getDefaultUserAgentHeaderValue");
-        let nodeVersion = process.version;
-        if (nodeVersion == null || nodeVersion == "") {
-            nodeVersion = Facilitator.Constants.usermetadata_Unknown;
-        }
-        return `${Facilitator.Constants.usermetadata_Name}/${Facilitator.Constants.usermetadata_ExtensionVersion} (Node/${nodeVersion})`;
-    }
-    displayPlatformConnectivityIssueMessage() {
-        console.log("Verify that:\n" +
-            "   1.The login credentials are correct\n" +
-            "   2.The account is an API account with the necessary permissions.\n" +
-            "   3.The account is not locked.\n" +
-            "   4.The IP address of the Internet-facing machine is not restricted.\n" +
-            "   5.The VSO agent has the necessary permissions.\n" +
-            "   6.The port that the VSO agent uses is not restricted.");
-    }
-    /**
-     * Retrieve application details from xml file
-     * @param {xmlDocument} xml - XML document consist of application details
-     * @param {Facilitator.ScanDto} scanDetails - Consists of details required to obtain application information.
-     * @param {Facilitator.FlawImporterParametersDto} importerParametersDto - All parameters required to call Wrapper Methods.
-     */
-    retrieveApplicationDetails(xml, importerParameters, scanDetails) {
-        core.debug("Class Name : VeracodeBridge , Method Name : retrieveApplicationDetails");
-        try {
-            let applistElements = xml.getElementsByTagName('app');
-            for (var i = 0; i < applistElements.length; i++) {
-                if (importerParameters.VeracodeAppProfile == applistElements[i].getAttribute('app_name')) {
-                    scanDetails.AppName = applistElements[i].getAttribute('app_name');
-                    scanDetails.Appid = applistElements[i].getAttribute('app_id');
-                    break;
-                }
-            }
-            core.debug(`scanDetails.AppName: ${scanDetails.AppName}`);
-            core.debug(`scanDetails.Appid: ${scanDetails.Appid}`);
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while mapping application information", this.failBuildIfFlawImporterBuildStepFails);
-        }
-    }
-    /**
-    * Retrieve Sandbox details from xml file
-    * @param {xmlDocument} xml - XML document consist of Sandbox details
-    * @param {Facilitator.FlawImporterParametersDto}importerParametersDto - All parameters required to call Wrapper Methods.
-    */
-    retrieveSandboxDetails(xml, importerParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: retrieveSandboxDetails");
-        try {
-            let sandboxId = "";
-            let sandboxlistElements = xml.getElementsByTagName('sandbox');
-            for (var i = 0; i < sandboxlistElements.length; i++) {
-                if (importerParameters.SandboxName == sandboxlistElements[i].getAttribute('sandbox_name')) {
-                    sandboxId = sandboxlistElements[i].getAttribute('sandbox_id') || "";
-                    break;
-                }
-            }
-            if (sandboxId) {
-                importerParameters.SandboxId = sandboxId;
-            }
-            else {
-                console.log("Please recheck sandbox name");
-            }
-        }
-        catch (error) {
-            this.commonHelper.handleError(error, "Error occurred while mapping sandbox information", this.failBuildIfFlawImporterBuildStepFails);
-        }
-    }
-    /**
-     * Generates proxy variable string
-     * @param importParameters - user entered parameters
-     * @returns proxy variable string
-     */
-    generateProxyString(importParameters) {
-        core.debug("Class Name: VeracodeBridge, Method Name: generateProxyString");
-        if (importParameters.Puser && importParameters.Ppassword) {
-            core.debug("Proxy user, password, host and port idntified");
-            return `${encodeURIComponent(importParameters.Puser)}:${encodeURIComponent(importParameters.Ppassword)}@${importParameters.Phost}:${importParameters.Pport}`;
-        }
-        else {
-            core.debug("Proxy host and port idntified");
-            return `${importParameters.Phost}:${importParameters.Pport}`;
-        }
-    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.calculateAuthorizationHeader = calculateAuthorizationHeader;
+const crypto = __importStar(__nccwpck_require__(6982));
+const sjcl = __importStar(__nccwpck_require__(4481));
+const authorizationScheme = "VERACODE-HMAC-SHA-256";
+const requestVersion = "vcode_request_version_1";
+const nonceSize = 16;
+function computeHashHex(message, keyHex) {
+    const keyBits = sjcl.codec.hex.toBits(keyHex);
+    const hmacBits = (new sjcl.misc.hmac(keyBits, sjcl.hash.sha256)).mac(message);
+    const hmac = sjcl.codec.hex.fromBits(hmacBits);
+    return hmac;
 }
-exports.VeracodeBridge = VeracodeBridge;
+function calculateDataSignature(apiKeyBytes, nonceBytes, dateStamp, data) {
+    const kNonce = computeHashHex(nonceBytes, apiKeyBytes);
+    const kDate = computeHashHex(dateStamp, kNonce);
+    const kSig = computeHashHex(requestVersion, kDate);
+    const kFinal = computeHashHex(data, kSig);
+    return kFinal;
+}
+function newNonce() {
+    return crypto.randomBytes(nonceSize).toString('hex').toUpperCase();
+}
+function toHexBinary(input) {
+    return sjcl.codec.hex.fromBits(sjcl.codec.utf8String.toBits(input));
+}
+function calculateAuthorizationHeader(id, key, hostName, uriString, urlQueryParams, httpMethod) {
+    uriString += urlQueryParams;
+    const data = `id=${id}&host=${hostName}&url=${uriString}&method=${httpMethod}`;
+    const dateStamp = Date.now().toString();
+    const nonceBytes = newNonce();
+    const dataSignature = calculateDataSignature(key, nonceBytes, dateStamp, data);
+    const authorizationParam = `id=${id},ts=${dateStamp},nonce=${toHexBinary(nonceBytes)},sig=${dataSignature}`;
+    const header = authorizationScheme + " " + authorizationParam;
+    return header;
+}
 
 
 /***/ }),
@@ -97591,6 +97724,22 @@ async function run() {
     }
 }
 run();
+
+
+/***/ }),
+
+/***/ 8214:
+/***/ ((module) => {
+
+module.exports = eval("require")("http-proxy-agent");
+
+
+/***/ }),
+
+/***/ 4735:
+/***/ ((module) => {
+
+module.exports = eval("require")("https-proxy-agent");
 
 
 /***/ }),
