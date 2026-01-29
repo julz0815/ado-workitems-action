@@ -318,11 +318,14 @@ export class SCAFlawManager {
         
         workItem.Title = `Component: ${library}${version ? '-' + version : ''} has CVE Vulnerability ${cveId || 'Unknown'} detected in Application: ${appProfile}`;
         workItem.Html = this.generateWorkItemBody(vulnerability, scanDetails, vulnerableComponent.ComponentId);
+        
+        // Ensure severity is always set - default to 5 (Critical) if not available
         let severity = Number(vulnerability.Severity);
-        if (severity && !Number.isNaN(severity)) {
-            workItem.SeverityValue = this.getSeverityAsString(severity);
-            workItem.Severity = severity;
+        if (isNaN(severity) || severity < 0 || severity > 5) {
+            severity = 5; // Default to Critical if invalid
         }
+        workItem.SeverityValue = this.getSeverityAsString(severity);
+        workItem.Severity = severity;
         workItem.IsOpenAccordingtoMitigationStatus = !vulnerability.IsMitigation;
         workItem.AffectedbyPolicy = vulnerability.DoesAffectPolicy;
         workItem.FlawComments = vulnerability.MitigationCommentOnFlawClosure;

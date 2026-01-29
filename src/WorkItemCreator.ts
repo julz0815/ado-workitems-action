@@ -1125,17 +1125,35 @@ export class WorkItemCreatoroAuth {
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: getWorkItemJson");
         area = area.replace(/\\/g, "\\\\");
 
-        //Title
+        //Title - ensure not null
+        if (!title || title.trim() === '') {
+            throw new Error("Work item title cannot be null or empty");
+        }
         let addTitle: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Title", "value": title };
-        //Tags
-        let addTags: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Tags", "value": tagsCollection.join(";") };
-        //RepoSteps
+        
+        //Tags - ensure not null, use empty string if array is empty
+        const tagsValue = (tagsCollection && tagsCollection.length > 0) ? tagsCollection.join(";") : "";
+        let addTags: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Tags", "value": tagsValue };
+        
+        //RepoSteps/Description - ensure not null
+        if (!description || description.trim() === '') {
+            throw new Error("Work item description cannot be null or empty");
+        }
         let addRepoSteps: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.TCM.ReproSteps", "value": description };
-        //Severity
-        let addSeverity: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.Common.Severity", "value": severity };
-        //AreaPath
+        
+        //Severity - ensure not null, default to "2 - High" if not provided
+        const severityValue = severity && severity.trim() !== '' ? severity : "2 - High";
+        let addSeverity: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.Common.Severity", "value": severityValue };
+        //AreaPath - ensure not null
+        if (!area || area.trim() === '') {
+            throw new Error("Work item area path cannot be null or empty");
+        }
         let addAreaPath: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.AreaPath", "value": area };
-        //Iteration Path
+        
+        //Iteration Path - ensure not null
+        if (!iterationPath || iterationPath.trim() === '') {
+            throw new Error("Work item iteration path cannot be null or empty");
+        }
         let addIterationPath: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.IterationPath", "value": iterationPath };
         //Description
         let addDescription: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Description", "value": description };

@@ -95169,11 +95169,13 @@ class SCAFlawManager {
         const appProfile = String(importParameters.VeracodeAppProfile || '').trim();
         workItem.Title = `Component: ${library}${version ? '-' + version : ''} has CVE Vulnerability ${cveId || 'Unknown'} detected in Application: ${appProfile}`;
         workItem.Html = this.generateWorkItemBody(vulnerability, scanDetails, vulnerableComponent.ComponentId);
+        // Ensure severity is always set - default to 5 (Critical) if not available
         let severity = Number(vulnerability.Severity);
-        if (severity && !Number.isNaN(severity)) {
-            workItem.SeverityValue = this.getSeverityAsString(severity);
-            workItem.Severity = severity;
+        if (isNaN(severity) || severity < 0 || severity > 5) {
+            severity = 5; // Default to Critical if invalid
         }
+        workItem.SeverityValue = this.getSeverityAsString(severity);
+        workItem.Severity = severity;
         workItem.IsOpenAccordingtoMitigationStatus = !vulnerability.IsMitigation;
         workItem.AffectedbyPolicy = vulnerability.DoesAffectPolicy;
         workItem.FlawComments = vulnerability.MitigationCommentOnFlawClosure;
@@ -97516,17 +97518,31 @@ class WorkItemCreatoroAuth {
     async getWorkItemJson({ witype, title, description, severity, area, foundInBuild, tagsCollection, wiComments, iterationPath }) {
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: getWorkItemJson");
         area = area.replace(/\\/g, "\\\\");
-        //Title
+        //Title - ensure not null
+        if (!title || title.trim() === '') {
+            throw new Error("Work item title cannot be null or empty");
+        }
         let addTitle = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Title", "value": title };
-        //Tags
-        let addTags = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Tags", "value": tagsCollection.join(";") };
-        //RepoSteps
+        //Tags - ensure not null, use empty string if array is empty
+        const tagsValue = (tagsCollection && tagsCollection.length > 0) ? tagsCollection.join(";") : "";
+        let addTags = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Tags", "value": tagsValue };
+        //RepoSteps/Description - ensure not null
+        if (!description || description.trim() === '') {
+            throw new Error("Work item description cannot be null or empty");
+        }
         let addRepoSteps = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.TCM.ReproSteps", "value": description };
-        //Severity
-        let addSeverity = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.Common.Severity", "value": severity };
-        //AreaPath
+        //Severity - ensure not null, default to "2 - High" if not provided
+        const severityValue = severity && severity.trim() !== '' ? severity : "2 - High";
+        let addSeverity = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.Common.Severity", "value": severityValue };
+        //AreaPath - ensure not null
+        if (!area || area.trim() === '') {
+            throw new Error("Work item area path cannot be null or empty");
+        }
         let addAreaPath = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.AreaPath", "value": area };
-        //Iteration Path
+        //Iteration Path - ensure not null
+        if (!iterationPath || iterationPath.trim() === '') {
+            throw new Error("Work item iteration path cannot be null or empty");
+        }
         let addIterationPath = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.IterationPath", "value": iterationPath };
         //Description
         let addDescription = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Description", "value": description };
