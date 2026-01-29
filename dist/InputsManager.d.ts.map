@@ -1,0 +1,1 @@
+{"version":3,"file":"InputsManager.d.ts","sourceRoot":"","sources":["../src/InputsManager.ts"],"names":[],"mappings":"AAAA;;;;;;;;+EAQ+E;AAI/E,OAAO,KAAK,UAAU,MAAM,UAAU,CAAC;AAEvC,qBAAa,aAAa;IACxB,YAAY,EAAE,UAAU,CAAC,YAAY,CAAC;;IAMtC,cAAc,IAAI,UAAU,CAAC,yBAAyB;IAmItD,OAAO,CAAC,eAAe;IAiBvB,OAAO,CAAC,uBAAuB;IAkD/B,OAAO,CAAC,uBAAuB;CAYhC"}

@@ -1,0 +1,120 @@
+name: 'Veracode Flaw Importer'
+description: 'Import flaws from Veracode Platform and create work items in Azure DevOps'
+author: 'Veracode'
+branding:
+  icon: 'shield'
+  color: 'blue'
+inputs:
+  # Azure DevOps Connection
+  ado-token:
+    description: 'Azure DevOps Personal Access Token (PAT) with Work Items Read & Write permissions'
+    required: true
+  ado-org:
+    description: 'Azure DevOps organization name'
+    required: true
+  ado-project:
+    description: 'Azure DevOps project name'
+    required: true
+  
+  # Veracode Connection
+  veracode-api-id:
+    description: 'Veracode API ID'
+    required: true
+  veracode-api-key:
+    description: 'Veracode API Key'
+    required: true
+  
+  # Flaw Source
+  veracode-app-profile:
+    description: 'Application Name in Veracode Platform'
+    required: true
+  sandbox-name:
+    description: 'Sandbox Name (optional)'
+    required: false
+  
+  # Work Item Settings
+  scan-type:
+    description: 'Scan Type'
+    required: true
+    default: 'Dynamic and Static Analysis'
+  import-type:
+    description: 'Import Type'
+    required: true
+    default: 'All Unmitigated Flaws Violating Policy'
+  work-item-type:
+    description: 'Work Item Type'
+    required: true
+    default: 'Bug'
+  area-path:
+    description: 'Area Path'
+    required: true
+  overwrite-area-path:
+    description: 'Overwrite Area Path in Work Items on Import'
+    required: true
+    default: 'true'
+  iteration-path:
+    description: 'Iteration Path'
+    required: true
+  overwrite-iteration-path:
+    description: 'Overwrite Iteration Path in Work Items on Import'
+    required: true
+    default: 'true'
+  flaw-import-limit:
+    description: 'Flaw Import Limit'
+    required: true
+    default: '1000'
+  
+  # Tags
+  add-cwe-as-tag:
+    description: 'Add CWE as a Tag'
+    required: false
+    default: 'true'
+  add-cve-as-tag:
+    description: 'Add CVE as a Tag'
+    required: false
+    default: 'true'
+  add-custom-tag:
+    description: 'Add Custom Tag'
+    required: false
+  add-build-id-as-tag:
+    description: 'Add Build ID as a Tag'
+    required: false
+    default: 'true'
+  add-scan-name-as-tag:
+    description: 'Add Scan Name as a Tag'
+    required: false
+    default: 'true'
+  add-scan-type-tag:
+    description: 'Add Scan Type as a Tag'
+    required: false
+    default: 'true'
+  add-severity-tag:
+    description: 'Add Severity as a Tag'
+    required: false
+    default: 'true'
+  add-due-date-tag:
+    description: 'Add Due Date as a Tag'
+    required: false
+    default: 'true'
+  
+  # Custom Fields
+  custom-fields:
+    description: 'Custom Fields (key:value pairs, one per line)'
+    required: false
+  
+  # Advanced
+  proxy-settings:
+    description: 'Proxy Settings'
+    required: false
+  fail-on-error:
+    description: 'Fail action if flaw importer fails'
+    required: false
+    default: 'false'
+  debug:
+    description: 'Enable debug logging'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

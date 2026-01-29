@@ -1,0 +1,3 @@
+node_modules/*
+local-test/*
+veracode-azure-devops-extension/*
