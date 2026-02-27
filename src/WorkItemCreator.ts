@@ -716,14 +716,37 @@ export class WorkItemCreatoroAuth {
         let onUpdate = false;
 
         console.log(
-            `Work item type:  ${this.workItemType}\nWork item area path: ${workItemDetails.Area}\nOverwrite area path in work items on import: ${workItemDetails.OverwriteAreaPathInWorkItemsOnImport}\nWork items count: ${workItemDetails.WorkItemList.length}\nWork item flaw import limit: ${workItemDetails.FlawImportLimit}\nWork item list length: ${workItemDetails.WorkItemList.length}\nOverwrite Iteration Path In WorkItems On Import: ${workItemDetails.OverwriteIterationPathInWorkItemsOnImport}`);
+            `Creating work items in project: ${this.projName} (ID: ${this.projectId || 'not set yet'})\n` +
+            `Work item type:  ${this.workItemType}\n` +
+            `Work item area path: ${workItemDetails.Area}\n` +
+            `Work item iteration path: ${workItemDetails.IterationPath}\n` +
+            `Overwrite area path in work items on import: ${workItemDetails.OverwriteAreaPathInWorkItemsOnImport}\n` +
+            `Work items count: ${workItemDetails.WorkItemList.length}\n` +
+            `Work item flaw import limit: ${workItemDetails.FlawImportLimit}\n` +
+            `Work item list length: ${workItemDetails.WorkItemList.length}\n` +
+            `Overwrite Iteration Path In WorkItems On Import: ${workItemDetails.OverwriteIterationPathInWorkItemsOnImport}`);
         let createdWorkItemCount = 0;
         if (await this.validateSupportedWITypes()) {
             this.commonActivity.handleError(null, "The current process template does not support the selected work item type. Select a different type and try again.", this.failBuildIfFlawImporterBuildStepFails);
         } else {
                 const appTag = `VeracodeFlawImporter:${workItemDetails.Appid}`.replace(/'/g, "''");
+                
+                // Escape area path and iteration path for WIQL query
+                const areaPath = (workItemDetails.Area || '').replace(/'/g, "''");
+                const iterationPath = (workItemDetails.IterationPath || '').replace(/'/g, "''");
+                
+                // Build WIQL query with project, area path, and iteration path filters
+                // This ensures we only find work items in the current project's specified paths
+                let wiqlQuery = `SELECT [System.Id] FROM workitems WHERE [System.Tags] CONTAINS '${appTag}'`;
+                if (areaPath) {
+                    wiqlQuery += ` AND [System.AreaPath] UNDER '${areaPath}'`;
+                }
+                if (iterationPath) {
+                    wiqlQuery += ` AND [System.IterationPath] UNDER '${iterationPath}'`;
+                }
+                
                 const wiql = {
-                    query: `SELECT [System.Id] FROM workitems WHERE [System.Tags] CONTAINS '${appTag}'`
+                    query: wiqlQuery
                 }
 
                 const teamContext: coreInterfaces.TeamContext = {
@@ -733,6 +756,7 @@ export class WorkItemCreatoroAuth {
                     teamId: ""
                 };
 
+                console.log(`Searching for existing work items in project: ${this.projName} (ID: ${this.projectId}), area path: ${areaPath || 'any'}, iteration path: ${iterationPath || 'any'}`);
                 const existingRef = await this.vstsWI.queryByWiql(wiql, teamContext);
                 const existingIds = (existingRef.workItems || [])
                     .map(w => w.id)
@@ -766,7 +790,7 @@ export class WorkItemCreatoroAuth {
                 const title = (flawItem.Title || "").toLowerCase();
                 const isSCAFlaw =
                     /cve-\d{4}-\d+/i.test(title) || /component/i.test(title);
-                let workItemQueryResult = await this.getWorkitem(this.projName, this.projectId, flawItem.Title);
+                let workItemQueryResult = await this.getWorkitem(this.projName, this.projectId, flawItem.Title, workItemDetails.Area, workItemDetails.IterationPath);
 
                 core.debug(`WorkItem result length: ${workItemQueryResult.workItems?.length || 0}`);
                 if (!workItemQueryResult.workItems || workItemQueryResult.workItems.length == 0) {
@@ -1087,15 +1111,30 @@ export class WorkItemCreatoroAuth {
      * @param {string} teamProjectId - Team project Id
      * @param {string} title - WorkItem title
      */
-    async getWorkitem(projectName: string, teamProjectId: string, title: string): Promise<wi.WorkItemQueryResult> {
+    async getWorkitem(projectName: string, teamProjectId: string, title: string, areaPath?: string, iterationPath?: string): Promise<wi.WorkItemQueryResult> {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: getWorkitem");
         try {
             title = title.replace(/'/g, "''");
+            
+            // Build query with area path and iteration path filters if provided
+            let query = `Select [System.Id] From WorkItems Where [System.WorkItemType] = '${this.workItemType}' AND [System.Title] = '${title}'`;
+            
+            if (areaPath) {
+                const escapedAreaPath = areaPath.replace(/'/g, "''");
+                query += ` AND [System.AreaPath] UNDER '${escapedAreaPath}'`;
+            }
+            if (iterationPath) {
+                const escapedIterationPath = iterationPath.replace(/'/g, "''");
+                query += ` AND [System.IterationPath] UNDER '${escapedIterationPath}'`;
+            }
+            
             let selectWorkItemsQry = {
-                query: `Select [System.Id] From WorkItems Where [System.WorkItemType] = '${this.workItemType}' AND [System.Title] = '${title}'`
+                query: query
             };
             let teamContext: coreInterfaces.TeamContext = { project: projectName, projectId: teamProjectId, team: "", teamId: "" };
+            
+            core.debug(`Querying work items in project: ${projectName} (ID: ${teamProjectId}), area: ${areaPath || 'any'}, iteration: ${iterationPath || 'any'}, title: ${title.substring(0, 50)}...`);
             return await this.vstsWI.queryByWiql(selectWorkItemsQry, teamContext, undefined, undefined);
         } catch (error) {
             this.commonActivity.handleError(error, "Work item query failed.", this.failBuildIfFlawImporterBuildStepFails);
