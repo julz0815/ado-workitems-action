@@ -120,7 +120,27 @@ export class WorkItemCreatoroAuth {
         try {
             let projectData: coreInterfaces.TeamProject = await this.vstsCore.getProject(this.projectId, true, true);
             let templateData = projectData.capabilities?.["processTemplate"];
-            this.processTemplate = templateData?.["templateName"] || '';
+            let rawTemplateName = templateData?.["templateName"] || '';
+            
+            // Normalize template name: Azure DevOps may return "orgName Agile" or just "Agile"
+            // Extract the last word which should be the template type (Agile, Scrum, CMMI, Basic)
+            if (rawTemplateName) {
+                const templateParts = rawTemplateName.trim().split(/\s+/);
+                const lastPart = templateParts[templateParts.length - 1];
+                // Check if the last part matches a known template type
+                if (lastPart === CommonData.Constants.processTemplate_Agile ||
+                    lastPart === CommonData.Constants.processTemplate_Scrum ||
+                    lastPart === CommonData.Constants.processTemplate_CMMI ||
+                    lastPart === CommonData.Constants.processTemplate_Basic) {
+                    this.processTemplate = lastPart;
+                } else {
+                    // If no match, use the full name (might be a custom template)
+                    this.processTemplate = rawTemplateName;
+                }
+            } else {
+                this.processTemplate = '';
+            }
+            
             if (customProcessTemplateDataDto.TemplateType == CommonData.Constants.processTemplate_Custom) {
                 this.processTemplate = CommonData.Constants.processTemplate_Custom;
             }
