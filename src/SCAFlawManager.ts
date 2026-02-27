@@ -74,6 +74,9 @@ export class SCAFlawManager {
         }
         
         // Process each component
+        let totalSCAFindings = 0;
+        let filteredSCAFindings = 0;
+        
         for (const [componentKey, componentFindings] of componentsMap.entries()) {
             const vulnerableComponent = this.populateComponentDataFromAPI({}, componentFindings);
             
@@ -81,6 +84,7 @@ export class SCAFlawManager {
                 console.log(`Vulnerabilities count: ${vulnerableComponent.Vulnerabilities.length}`);
                 // Match vulnerabilities with their raw findings
                 for (let i = 0; i < vulnerableComponent.Vulnerabilities.length; i++) {
+                    totalSCAFindings++;
                     const vulnerability = vulnerableComponent.Vulnerabilities[i];
                     const rawFinding = componentFindings[i]; // Get corresponding raw finding
                     
@@ -93,6 +97,12 @@ export class SCAFlawManager {
                     flawData.FlawAffectedbyPolicy = vulnerability.DoesAffectPolicy;
                     vulnerability.FilePathList = vulnerableComponent.FilePathsList;
                     
+                    // Debug logging for SCA findings
+                    const cveId = vulnerability.CveId || 'Unknown';
+                    const isMitigated = vulnerability.IsMitigation;
+                    const violatesPolicy = vulnerability.DoesAffectPolicy;
+                    console.log(`SCA Finding ${totalSCAFindings}: CVE=${cveId}, IsMitigated=${isMitigated}, ViolatesPolicy=${violatesPolicy}, Component=${vulnerableComponent.Library}`);
+                    
                     // Create work item with annotations from raw finding
                     const workItem = this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion);
                     
@@ -102,15 +112,26 @@ export class SCAFlawManager {
                         workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
                     }
                     
+                    const workItemsBeforeFilter = workItemDetails.WorkItemList.length;
                     this.commonHelper.filterWorkItemsByFlawType(
                         flawData,
                         workItem,
                         workItemDetails,
                         importParameters
                     );
+                    const workItemsAfterFilter = workItemDetails.WorkItemList.length;
+                    
+                    if (workItemsAfterFilter > workItemsBeforeFilter) {
+                        filteredSCAFindings++;
+                        console.log(`SCA work item added: ${workItem.Title}`);
+                    } else {
+                        console.log(`SCA finding filtered out: CVE=${cveId}, MitigationStatus=${flawData.MitigationStatus}, AffectedbyPolicy=${flawData.FlawAffectedbyPolicy}, ImportType=${importParameters.ImportType}`);
+                    }
                 }
             }
         }
+        
+        console.log(`SCA Processing Summary: Total findings processed: ${totalSCAFindings}, Work items created: ${filteredSCAFindings}`);
     }
 
     /**
@@ -167,7 +188,19 @@ export class SCAFlawManager {
         // Severity can be from cve.severity or finding_details.severity
         vuln.Severity = details.cve?.severity?.toString() || details.severity?.toString() || '5';
         vuln.FirstFoundDate = status.first_found_date || '';
-        vuln.DoesAffectPolicy = vulnerability.violates_policy || false;
+        
+        // Check multiple possible locations for violates_policy
+        // It might be at the top level, in finding_status, or in finding_details
+        const violatesPolicy = vulnerability.violates_policy !== undefined ? vulnerability.violates_policy :
+                               status.violates_policy !== undefined ? status.violates_policy :
+                               details.violates_policy !== undefined ? details.violates_policy :
+                               false;
+        vuln.DoesAffectPolicy = Boolean(violatesPolicy);
+        
+        // Debug logging for policy violation detection
+        if (core.isDebug()) {
+            core.debug(`SCA Vulnerability Policy Check - CVE: ${vuln.CveId}, violates_policy (top): ${vulnerability.violates_policy}, violates_policy (status): ${status.violates_policy}, violates_policy (details): ${details.violates_policy}, Final: ${vuln.DoesAffectPolicy}`);
+        }
         
         // Determine if mitigated based on annotations
         vuln.IsMitigation = false;

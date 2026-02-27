@@ -1928,10 +1928,13 @@ export class CommonHelper {
 			case Constants.WorkItemImport_AllUnmitigatedFlawsThatViolatingPolicy:
 				if (flawData.MitigationStatus != Constants.mitigation_Status_Accepted && flawData.FlawAffectedbyPolicy) {
 					workItemsCreationData.WorkItemList.push(workItem);
+					actionsCore.debug(`Work item added (Unmitigated + Policy Violation): ${workItem.Title}`);
+				} else {
+					actionsCore.debug(`Work item filtered out - MitigationStatus: ${flawData.MitigationStatus}, AffectedbyPolicy: ${flawData.FlawAffectedbyPolicy}, Title: ${workItem.Title}`);
 				}
 				break;
 			default:
-				console.log("Import type is not selected.");
+				console.log(`Import type is not selected or unknown: ${importParameters.ImportType}`);
 		}
 	}
 

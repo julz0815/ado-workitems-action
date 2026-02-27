@@ -94093,10 +94093,14 @@ class CommonHelper {
             case Constants.WorkItemImport_AllUnmitigatedFlawsThatViolatingPolicy:
                 if (flawData.MitigationStatus != Constants.mitigation_Status_Accepted && flawData.FlawAffectedbyPolicy) {
                     workItemsCreationData.WorkItemList.push(workItem);
+                    actionsCore.debug(`Work item added (Unmitigated + Policy Violation): ${workItem.Title}`);
+                }
+                else {
+                    actionsCore.debug(`Work item filtered out - MitigationStatus: ${flawData.MitigationStatus}, AffectedbyPolicy: ${flawData.FlawAffectedbyPolicy}, Title: ${workItem.Title}`);
                 }
                 break;
             default:
-                console.log("Import type is not selected.");
+                console.log(`Import type is not selected or unknown: ${importParameters.ImportType}`);
         }
     }
     /**
@@ -94973,12 +94977,15 @@ class SCAFlawManager {
             componentsMap.get(componentKey).push(finding);
         }
         // Process each component
+        let totalSCAFindings = 0;
+        let filteredSCAFindings = 0;
         for (const [componentKey, componentFindings] of componentsMap.entries()) {
             const vulnerableComponent = this.populateComponentDataFromAPI({}, componentFindings);
             if (vulnerableComponent && vulnerableComponent.Vulnerabilities.length > 0) {
                 console.log(`Vulnerabilities count: ${vulnerableComponent.Vulnerabilities.length}`);
                 // Match vulnerabilities with their raw findings
                 for (let i = 0; i < vulnerableComponent.Vulnerabilities.length; i++) {
+                    totalSCAFindings++;
                     const vulnerability = vulnerableComponent.Vulnerabilities[i];
                     const rawFinding = componentFindings[i]; // Get corresponding raw finding
                     let flawData = new CommonData.FlawDto();
@@ -94990,6 +94997,11 @@ class SCAFlawManager {
                     }
                     flawData.FlawAffectedbyPolicy = vulnerability.DoesAffectPolicy;
                     vulnerability.FilePathList = vulnerableComponent.FilePathsList;
+                    // Debug logging for SCA findings
+                    const cveId = vulnerability.CveId || 'Unknown';
+                    const isMitigated = vulnerability.IsMitigation;
+                    const violatesPolicy = vulnerability.DoesAffectPolicy;
+                    console.log(`SCA Finding ${totalSCAFindings}: CVE=${cveId}, IsMitigated=${isMitigated}, ViolatesPolicy=${violatesPolicy}, Component=${vulnerableComponent.Library}`);
                     // Create work item with annotations from raw finding
                     const workItem = this.vulnerabilityToWorkItem(vulnerableComponent, vulnerability, importParameters, scanDetails, workItemDetails.BuildVersion);
                     // Store annotations and resolution status for mitigation handling
@@ -94997,10 +95009,20 @@ class SCAFlawManager {
                         workItem.Annotations = rawFinding.annotations || [];
                         workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
                     }
+                    const workItemsBeforeFilter = workItemDetails.WorkItemList.length;
                     this.commonHelper.filterWorkItemsByFlawType(flawData, workItem, workItemDetails, importParameters);
+                    const workItemsAfterFilter = workItemDetails.WorkItemList.length;
+                    if (workItemsAfterFilter > workItemsBeforeFilter) {
+                        filteredSCAFindings++;
+                        console.log(`SCA work item added: ${workItem.Title}`);
+                    }
+                    else {
+                        console.log(`SCA finding filtered out: CVE=${cveId}, MitigationStatus=${flawData.MitigationStatus}, AffectedbyPolicy=${flawData.FlawAffectedbyPolicy}, ImportType=${importParameters.ImportType}`);
+                    }
                 }
             }
         }
+        console.log(`SCA Processing Summary: Total findings processed: ${totalSCAFindings}, Work items created: ${filteredSCAFindings}`);
     }
     /**
      * Populate component data from API findings
@@ -95049,7 +95071,17 @@ class SCAFlawManager {
         // Severity can be from cve.severity or finding_details.severity
         vuln.Severity = details.cve?.severity?.toString() || details.severity?.toString() || '5';
         vuln.FirstFoundDate = status.first_found_date || '';
-        vuln.DoesAffectPolicy = vulnerability.violates_policy || false;
+        // Check multiple possible locations for violates_policy
+        // It might be at the top level, in finding_status, or in finding_details
+        const violatesPolicy = vulnerability.violates_policy !== undefined ? vulnerability.violates_policy :
+            status.violates_policy !== undefined ? status.violates_policy :
+                details.violates_policy !== undefined ? details.violates_policy :
+                    false;
+        vuln.DoesAffectPolicy = Boolean(violatesPolicy);
+        // Debug logging for policy violation detection
+        if (core.isDebug()) {
+            core.debug(`SCA Vulnerability Policy Check - CVE: ${vuln.CveId}, violates_policy (top): ${vulnerability.violates_policy}, violates_policy (status): ${status.violates_policy}, violates_policy (details): ${details.violates_policy}, Final: ${vuln.DoesAffectPolicy}`);
+        }
         // Determine if mitigated based on annotations
         vuln.IsMitigation = false;
         vuln.MitigationType = '';
@@ -96747,7 +96779,27 @@ class WorkItemCreatoroAuth {
         try {
             let projectData = await this.vstsCore.getProject(this.projectId, true, true);
             let templateData = projectData.capabilities?.["processTemplate"];
-            this.processTemplate = templateData?.["templateName"] || '';
+            let rawTemplateName = templateData?.["templateName"] || '';
+            // Normalize template name: Azure DevOps may return "orgName Agile" or just "Agile"
+            // Extract the last word which should be the template type (Agile, Scrum, CMMI, Basic)
+            if (rawTemplateName) {
+                const templateParts = rawTemplateName.trim().split(/\s+/);
+                const lastPart = templateParts[templateParts.length - 1];
+                // Check if the last part matches a known template type
+                if (lastPart === CommonData.Constants.processTemplate_Agile ||
+                    lastPart === CommonData.Constants.processTemplate_Scrum ||
+                    lastPart === CommonData.Constants.processTemplate_CMMI ||
+                    lastPart === CommonData.Constants.processTemplate_Basic) {
+                    this.processTemplate = lastPart;
+                }
+                else {
+                    // If no match, use the full name (might be a custom template)
+                    this.processTemplate = rawTemplateName;
+                }
+            }
+            else {
+                this.processTemplate = '';
+            }
             if (customProcessTemplateDataDto.TemplateType == CommonData.Constants.processTemplate_Custom) {
                 this.processTemplate = CommonData.Constants.processTemplate_Custom;
             }

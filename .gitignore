@@ -3,3 +3,4 @@ local-test/*
 veracode-azure-devops-extension/*
 .DS_Store
 veracode-flaws-to-issues/*
+TEST_PLAN.md
