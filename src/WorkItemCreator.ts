@@ -904,7 +904,7 @@ export class WorkItemCreatoroAuth {
         } else {
             // Default to open state
             initialState = this.importParameters.AdoOpenState || this.workItemStateNew;
-            console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}'`);
+            console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}' with state '${initialState}'`);
         }
         
         // Create work item without comments (we'll add them separately for static findings)
@@ -964,7 +964,7 @@ export class WorkItemCreatoroAuth {
         } else {
             // Default to open state
             initialState = this.importParameters.AdoOpenState || this.workItemStateNew;
-            console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}'`);
+            console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}' with state '${initialState}'`);
         }
         
         // Create work item without comments (we'll add them separately for static findings)
@@ -1182,10 +1182,16 @@ export class WorkItemCreatoroAuth {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: performPostWorkItemCreationActivities");
         core.debug(`Expected work item state as per the flaw: ${state}`);
-        if (state == this.workItemStateClosed && workitem.id) {
-            core.debug(`Work item closed state as per the process template: ${this.workItemStateClosed}`);
+        
+        // Azure DevOps doesn't allow creating work items in certain states (like "Active", "Resolved", "Closed")
+        // They must be created in an initial state (typically "New") and then transitioned
+        // Update the state if it's different from the default "New" state
+        if (workitem.id && state && state.trim() !== '' && state.toLowerCase() !== this.workItemStateNew.toLowerCase()) {
+            core.debug(`Updating work item state from default "New" to "${state}"`);
             this.updateWorkitemState(workitem.id, state, area, overwriteAreaPathInWorkItemsOnImport, wiComments || null, workitem, buildVersion, iterationPath, overwriteIterationPathInWorkItemsOnImport);
-            console.log(`Updated WorkItem '${workitem.id}' to Closed State.`);
+            console.log(`Updated WorkItem '${workitem.id}' to state '${state}'.`);
+        } else if (workitem.id) {
+            core.debug(`Work item '${workitem.id}' created with default state "${this.workItemStateNew}" (no state update needed)`);
         }
     }
 
