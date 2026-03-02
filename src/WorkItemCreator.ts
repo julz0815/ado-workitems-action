@@ -33,7 +33,7 @@ interface WorkItemParameters {
     foundInBuild: string;
     tagsCollection: string[];
     state: string;
-    wiComments: string;
+    wiComments: string | null;
     overwriteAreaPathInWorkItemsOnImport: boolean;
     iterationPath: string;
     overwriteIterationPathInWorkItemsOnImport: boolean;
@@ -47,7 +47,7 @@ interface WorkItemJson {
     area: string;
     foundInBuild: string;
     tagsCollection: string[];
-    wiComments: string;
+    wiComments: string | null;
     iterationPath: string;
 }
 
@@ -887,14 +887,55 @@ export class WorkItemCreatoroAuth {
         workItemDetails: CommonData.workItemsDataDto) {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: handleUnmitigatedFlawsCreation");
+        
+        // Check if this is a static finding (not SCA)
+        const title = String(flawItem.Title || "").toLowerCase();
+        const isSCAFlaw = /cve-\d{4}-\d+/i.test(title) || /component/i.test(title);
+        const isStaticFlaw = !isSCAFlaw;
+        
+        // Determine initial state based on mitigation status
+        let initialState: string;
         if (flawItem.FlawStatus == CommonData.Constants.remediation_status_Fixed || flawItem.FlawStatus == CommonData.Constants.remediation_status_CannotReproduce) {
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.importParameters.AdoCloseState || this.workItemStateClosed, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
+            initialState = this.importParameters.AdoCloseState || this.workItemStateClosed;
+        } else if (isStaticFlaw && flawItem.ResolutionStatus === 'APPROVED') {
+            // For static findings: if resolution_status is APPROVED, create in closed state
+            initialState = this.importParameters.AdoCloseState || this.workItemStateClosed;
+            console.log(`Creating static work item '${flawItem.Title}' in closed state - finding has been mitigated (APPROVED status)`);
         } else {
+            // Default to open state
+            initialState = this.importParameters.AdoOpenState || this.workItemStateNew;
             console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}'`);
-            // Use configured open state, fallback to workItemStateNew for backward compatibility
-            const openState = this.importParameters.AdoOpenState || this.workItemStateNew;
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: openState, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
         }
+        
+        // Create work item without comments (we'll add them separately for static findings)
+        const createdWorkItemId = await this.createWorkitem({ 
+            projectName: this.projName, 
+            witype: this.workItemType, 
+            title: flawItem.Title, 
+            description: flawItem.Html, 
+            severity: flawItem.SeverityValue, 
+            area: workItemDetails.Area, 
+            foundInBuild: workItemDetails.BuildID, 
+            tagsCollection: flawItem.Tags, 
+            state: initialState, 
+            wiComments: null, // Don't add comments here - we'll add them separately for static findings
+            overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, 
+            iterationPath: workItemDetails.IterationPath, 
+            overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport 
+        });
+        
+        // For static findings: add mitigation comments individually (avoiding duplicates)
+        if (isStaticFlaw && flawItem.Annotations && flawItem.Annotations.length > 0 && createdWorkItemId) {
+            try {
+                console.log(`Adding mitigation comments to newly created static work item ${createdWorkItemId}`);
+                await this.addMitigationComments(createdWorkItemId, flawItem.Annotations);
+            } catch (error) {
+                core.debug(`Failed to add mitigation comments to newly created work item: ${error}`);
+                // Don't fail the whole process if comment addition fails
+            }
+        }
+        
+        return createdWorkItemId !== null;
     }
 
     /**
@@ -906,14 +947,55 @@ export class WorkItemCreatoroAuth {
         workItemDetails: CommonData.workItemsDataDto) {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: handlePolicyViolatedandAllFlawsCreation");
+        
+        // Check if this is a static finding (not SCA)
+        const title = String(flawItem.Title || "").toLowerCase();
+        const isSCAFlaw = /cve-\d{4}-\d+/i.test(title) || /component/i.test(title);
+        const isStaticFlaw = !isSCAFlaw;
+        
+        // Determine initial state based on mitigation status
+        let initialState: string;
         if (!flawItem.IsOpenAccordingtoMitigationStatus || flawItem.FlawStatus == CommonData.Constants.remediation_status_Fixed || flawItem.FlawStatus == CommonData.Constants.remediation_status_CannotReproduce) {
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: this.importParameters.AdoCloseState || this.workItemStateClosed, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
+            initialState = this.importParameters.AdoCloseState || this.workItemStateClosed;
+        } else if (isStaticFlaw && flawItem.ResolutionStatus === 'APPROVED') {
+            // For static findings: if resolution_status is APPROVED, create in closed state
+            initialState = this.importParameters.AdoCloseState || this.workItemStateClosed;
+            console.log(`Creating static work item '${flawItem.Title}' in closed state - finding has been mitigated (APPROVED status)`);
         } else {
+            // Default to open state
+            initialState = this.importParameters.AdoOpenState || this.workItemStateNew;
             console.log(`Creating WorkItem '${flawItem.Title}' in project '${this.projName}'`);
-            // Use configured open state, fallback to workItemStateNew for backward compatibility
-            const openState = this.importParameters.AdoOpenState || this.workItemStateNew;
-            return this.createWorkitem({ projectName: this.projName, witype: this.workItemType, title: flawItem.Title, description: flawItem.Html, severity: flawItem.SeverityValue, area: workItemDetails.Area, foundInBuild: workItemDetails.BuildID, tagsCollection: flawItem.Tags, state: openState, wiComments: flawItem.FlawComments, overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, iterationPath: workItemDetails.IterationPath, overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport });
         }
+        
+        // Create work item without comments (we'll add them separately for static findings)
+        const createdWorkItemId = await this.createWorkitem({ 
+            projectName: this.projName, 
+            witype: this.workItemType, 
+            title: flawItem.Title, 
+            description: flawItem.Html, 
+            severity: flawItem.SeverityValue, 
+            area: workItemDetails.Area, 
+            foundInBuild: workItemDetails.BuildID, 
+            tagsCollection: flawItem.Tags, 
+            state: initialState, 
+            wiComments: null, // Don't add comments here - we'll add them separately for static findings
+            overwriteAreaPathInWorkItemsOnImport: workItemDetails.OverwriteAreaPathInWorkItemsOnImport, 
+            iterationPath: workItemDetails.IterationPath, 
+            overwriteIterationPathInWorkItemsOnImport: workItemDetails.OverwriteIterationPathInWorkItemsOnImport 
+        });
+        
+        // For static findings: add mitigation comments individually (avoiding duplicates)
+        if (isStaticFlaw && flawItem.Annotations && flawItem.Annotations.length > 0 && createdWorkItemId) {
+            try {
+                console.log(`Adding mitigation comments to newly created static work item ${createdWorkItemId}`);
+                await this.addMitigationComments(createdWorkItemId, flawItem.Annotations);
+            } catch (error) {
+                core.debug(`Failed to add mitigation comments to newly created work item: ${error}`);
+                // Don't fail the whole process if comment addition fails
+            }
+        }
+        
+        return createdWorkItemId !== null;
     }
 
     /**
@@ -1029,7 +1111,7 @@ export class WorkItemCreatoroAuth {
      * @param overwriteIterationPathInWorkItemsOnImport determines whether iteration path field needs to overwrite in the WorkItem
      * @param {string} fixByDate -  Due Date for the ticket based on the Fix By Date for the finding, null if the Due Date
      */
-    async createWorkitem({ projectName, witype, title, description, severity, area, foundInBuild, tagsCollection, state, wiComments, overwriteAreaPathInWorkItemsOnImport, iterationPath, overwriteIterationPathInWorkItemsOnImport }: WorkItemParameters): Promise<boolean> {
+    async createWorkitem({ projectName, witype, title, description, severity, area, foundInBuild, tagsCollection, state, wiComments, overwriteAreaPathInWorkItemsOnImport, iterationPath, overwriteIterationPathInWorkItemsOnImport }: WorkItemParameters): Promise<number | null> {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: createWorkitem");
         let wijson = await this.getWorkItemJson({ witype, title, description, severity, area, foundInBuild, tagsCollection, wiComments, iterationPath });
@@ -1060,25 +1142,27 @@ export class WorkItemCreatoroAuth {
         wiComments: string | null,
         buildVersion: string,
         iterationPath: string,
-        overwriteIterationPathInWorkItemsOnImport: boolean): Promise<boolean> {
+        overwriteIterationPathInWorkItemsOnImport: boolean): Promise<number | null> {
 
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: manageCreateandUpdateWorkItem");
-        let deferred = q.defer<boolean>();
+        let deferred = q.defer<number | null>();
         try {
             await this.vstsWI.createWorkItem(undefined, wijson, projectName, witype, undefined, undefined).then((workitem: wi.WorkItem) => {
                 console.log(`WorkItem '${workitem.id}' Created.`);
                 //VSTS doesn't allow to create work items with "Closed" state, therefore updating the stste to "Closed" once its created.
                 if (workitem.id) {
                     this.performPostWorkItemCreationActivities(state, workitem, area, overwriteAreaPathInWorkItemsOnImport, wiComments || '', buildVersion, iterationPath, overwriteIterationPathInWorkItemsOnImport);
+                    deferred.resolve(workitem.id);
+                } else {
+                    deferred.resolve(null);
                 }
-                deferred.resolve(true);
             }).catch((e) => {
                 console.error(`Failed to create WorkItem '${title}' ${e}`);
-                deferred.reject(false);  
+                deferred.reject(null);  
             });
 
         } catch (error) {
-            deferred.reject(false);
+            deferred.reject(null);
             this.commonActivity.handleError(error, "Error occured while creating or updating work item", this.failBuildIfFlawImporterBuildStepFails);
         }
         return deferred.promise;

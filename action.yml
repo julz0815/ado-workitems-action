@@ -121,7 +121,7 @@ inputs:
   fail-on-error:
     description: 'Fail action if flaw importer fails'
     required: false
-    default: 'false'
+    default: 'true'
   debug:
     description: 'Enable debug logging'
     required: false
