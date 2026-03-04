@@ -98150,8 +98150,10 @@ class WorkItemCreatoroAuth {
         }
         var jsonPatchDocumentBase = [addTags, addTitle, addAreaPath, addIterationPath];
         if (witype == CommonData.Constants.wiType_Bug) {
+            // For Bugs, populate both ReproSteps and Description with the same HTML content
             jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addSeverity);
             jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addRepoSteps);
+            jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addDescription);
             if (addfoundInBuild) {
                 jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addfoundInBuild);
             }
