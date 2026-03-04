@@ -185,7 +185,12 @@ export class StaticAndDynamicFlawManager {
         const flawDetails = new CommonData.FlawDto();
         flawDetails.IssueID = finding.issue_id ? parseInt(finding.issue_id.toString()) : 0;
         flawDetails.CategoryName = details.finding_category?.name || '';
-        flawDetails.FlawDescription = finding.description || '';
+        // Try multiple possible locations for description
+        flawDetails.FlawDescription = finding.description 
+            || details.description 
+            || finding.finding_details?.description 
+            || details.finding_category?.description
+            || `Finding in ${details.file_path || 'unknown file'} at line ${details.file_line_number || 'unknown'}`;
         flawDetails.FlawAffectedbyPolicy = finding.violates_policy || false;
         flawDetails.Line = details.file_line_number?.toString() || '';
         flawDetails.SourceFile = details.file_path || '';
@@ -563,7 +568,23 @@ export class StaticAndDynamicFlawManager {
             workItem.ResolutionStatus = rawFinding.finding_status?.resolution_status || '';
         }
         
+        // Ensure FlawDescription is set before calling adjustWorkItemDataByType
+        if (!flawData.FlawDescription || flawData.FlawDescription.trim() === '') {
+            const details = rawFinding?.finding_details || {};
+            flawData.FlawDescription = rawFinding?.description 
+                || details.description 
+                || details.finding_category?.description
+                || `Finding in ${details.file_path || 'unknown file'} at line ${details.file_line_number || 'unknown'}`;
+            core.debug(`FlawDescription was empty, using fallback: ${flawData.FlawDescription.substring(0, 100)}...`);
+        }
+        
         this.adjustWorkItemDataByType(flawData, cweData, workItem, catData, scanDetails, importParameters);
+        
+        // Verify that Html was set
+        if (!workItem.Html || workItem.Html.trim() === '') {
+            core.warning(`Work item Html is empty after adjustWorkItemDataByType for issue ${flawData.IssueID}. Creating minimal description.`);
+            workItem.Html = `<b>Description:</b> ${flawData.FlawDescription || 'No description available.'}`;
+        }
 
         //TypeScript 'switch case' has issues with numbers and enums.
         //Hence, the multiple 'if else'. However, this seems to be fixed with 
@@ -824,7 +845,11 @@ export class StaticAndDynamicFlawManager {
         }
 
         let descriptionParagraphs = "";
-        let splitDescription = flawData.FlawDescription.split(CommonData.Constants.newLine);
+        // Ensure FlawDescription is not empty - use a fallback if needed
+        const flawDescription = flawData.FlawDescription && flawData.FlawDescription.trim() !== '' 
+            ? flawData.FlawDescription 
+            : 'No description available for this finding.';
+        let splitDescription = flawDescription.split(CommonData.Constants.newLine);
         for (let index = 0; index < splitDescription.length; index++) {
             descriptionParagraphs += `${splitDescription[index]} ${CommonData.Constants.html_LineBreak}`;
         }
