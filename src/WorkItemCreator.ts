@@ -698,6 +698,28 @@ export class WorkItemCreatoroAuth {
                         workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
                         severityPatch
                     );
+                } else if (!didStateChange && (workItemDetails.OverwriteAreaPathInWorkItemsOnImport || workItemDetails.OverwriteIterationPathInWorkItemsOnImport)) {
+                    // Even if state/severity don't change, update area/iteration paths if overwrite flags are true
+                    const currentAreaPath = retrievedWi.fields?.["System.AreaPath"] || '';
+                    const currentIterationPath = retrievedWi.fields?.["System.IterationPath"] || '';
+                    const areaPathChanged = workItemDetails.OverwriteAreaPathInWorkItemsOnImport && currentAreaPath !== workItemDetails.Area;
+                    const iterationPathChanged = workItemDetails.OverwriteIterationPathInWorkItemsOnImport && currentIterationPath !== workItemDetails.IterationPath;
+                    
+                    if (areaPathChanged || iterationPathChanged) {
+                        console.log(`Updating area/iteration paths for WI ${retrievedWi.id} (area: ${areaPathChanged ? `${currentAreaPath} -> ${workItemDetails.Area}` : 'no change'}, iteration: ${iterationPathChanged ? `${currentIterationPath} -> ${workItemDetails.IterationPath}` : 'no change'})`);
+                        await this.updateWorkitemState(
+                            workItemRef.id!,
+                            retrievedWi.fields["System.State"] || '',
+                            workItemDetails.Area,
+                            workItemDetails.OverwriteAreaPathInWorkItemsOnImport,
+                            null as any,
+                            retrievedWi,
+                            workItemDetails.BuildVersion,
+                            workItemDetails.IterationPath,
+                            workItemDetails.OverwriteIterationPathInWorkItemsOnImport,
+                            severityPatch
+                        );
+                    }
                 }
             deferred.resolve(true);
         } catch (error) {
