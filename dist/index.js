@@ -97287,7 +97287,9 @@ class WorkItemCreatoroAuth {
             // Build WIQL query to find work items by tag within the project
             // Note: We don't filter by area/iteration path here to find existing work items
             // even if they're in different paths (they'll be moved to the new path if overwrite flags are set)
-            let wiqlQuery = `SELECT [System.Id] FROM workitems WHERE [System.Tags] CONTAINS '${appTag}'`;
+            // But we DO filter by project to ensure we only find work items in the current project
+            const escapedProjectName = this.projName.replace(/'/g, "''");
+            let wiqlQuery = `SELECT [System.Id] FROM workitems WHERE [System.Tags] CONTAINS '${appTag}' AND [System.TeamProject] = '${escapedProjectName}'`;
             const wiql = {
                 query: wiqlQuery
             };
@@ -97322,7 +97324,26 @@ class WorkItemCreatoroAuth {
                 const isSCAFlaw = /cve-\d{4}-\d+/i.test(title) || /component/i.test(title);
                 let workItemQueryResult = await this.getWorkitem(this.projName, this.projectId, flawItem.Title, workItemDetails.Area, workItemDetails.IterationPath);
                 core.debug(`WorkItem result length: ${workItemQueryResult.workItems?.length || 0}`);
-                if (!workItemQueryResult.workItems || workItemQueryResult.workItems.length == 0) {
+                // Filter work items to ensure they're in the correct project
+                // The query should already filter by project, but we validate here as a safety check
+                let validWorkItemRefs = [];
+                if (workItemQueryResult.workItems && workItemQueryResult.workItems.length > 0) {
+                    // Fetch full work item details to check project
+                    const workItemIds = workItemQueryResult.workItems.map(wi => wi.id).filter((id) => typeof id === "number");
+                    if (workItemIds.length > 0) {
+                        const fullWorkItems = await this.getWorkItemsInBatches(this.vstsWI, workItemIds, ["System.TeamProject"]);
+                        validWorkItemRefs = workItemQueryResult.workItems.filter(wiRef => {
+                            const fullWi = fullWorkItems.find(wi => wi.id === wiRef.id);
+                            const workItemProject = fullWi?.fields?.["System.TeamProject"];
+                            const isValid = workItemProject === this.projName;
+                            if (!isValid && workItemProject) {
+                                core.debug(`Skipping work item ${wiRef.id} - it's in project '${workItemProject}', not '${this.projName}'`);
+                            }
+                            return isValid;
+                        });
+                    }
+                }
+                if (!validWorkItemRefs || validWorkItemRefs.length == 0) {
                     if (createdWorkItemCount < workItemDetails.FlawImportLimit) {
                         if (workItemDetails.Appid) {
                             if (isSCAFlaw) {
@@ -97342,8 +97363,8 @@ class WorkItemCreatoroAuth {
                 }
                 else {
                     onUpdate = true;
-                    if (workItemQueryResult.workItems && workItemQueryResult.workItems.length > 0) {
-                        await this.manageUpdateWorkItem(workItemDetails, flawItem, workItemQueryResult.workItems[0]);
+                    if (validWorkItemRefs && validWorkItemRefs.length > 0) {
+                        await this.manageUpdateWorkItem(workItemDetails, flawItem, validWorkItemRefs[0]);
                     }
                 }
             }
@@ -97682,10 +97703,12 @@ class WorkItemCreatoroAuth {
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: getWorkitem");
         try {
             title = title.replace(/'/g, "''");
+            const escapedProjectName = projectName.replace(/'/g, "''");
             // Build query to find work items by title within the project
             // Note: We don't filter by area/iteration path here to find existing work items
             // even if they're in different paths (they'll be moved to the new path if overwrite flags are set)
-            let query = `Select [System.Id] From WorkItems Where [System.WorkItemType] = '${this.workItemType}' AND [System.Title] = '${title}'`;
+            // But we DO filter by project to ensure we only find work items in the current project
+            let query = `Select [System.Id] From WorkItems Where [System.WorkItemType] = '${this.workItemType}' AND [System.Title] = '${title}' AND [System.TeamProject] = '${escapedProjectName}'`;
             let selectWorkItemsQry = {
                 query: query
             };
