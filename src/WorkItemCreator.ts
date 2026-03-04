@@ -1715,8 +1715,10 @@ export class WorkItemCreatoroAuth {
             throw new Error("Work item iteration path cannot be null or empty");
         }
         let addIterationPath: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.IterationPath", "value": iterationPath };
-        //Description
+        //Description (used by some templates / work item types)
         let addDescription: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/System.Description", "value": description };
+        //System Info (used on Agile Bug form as a main rich-text area)
+        let addSystemInfo: vss.JsonPatchOperation = { "from": "", "op": vss.Operation.Add, "path": "/fields/Microsoft.VSTS.TCM.SystemInfo", "value": description };
         //Discussion
         let addDiscussion: vss.JsonPatchOperation | undefined;
         if (wiComments != null) {
@@ -1731,10 +1733,17 @@ export class WorkItemCreatoroAuth {
 
         var jsonPatchDocumentBase: vss.JsonPatchOperation[] = [addTags, addTitle, addAreaPath, addIterationPath];
         if (witype == CommonData.Constants.wiType_Bug) {
-            // For Bugs, populate both ReproSteps and Description with the same HTML content
+            // For Bugs, populate the main text fields with the same HTML content.
+            // Different process templates surface different fields on the form.
             jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addSeverity);
+            // Repro Steps is commonly shown on Scrum/Basic templates and some Agile layouts
             jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addRepoSteps);
+            // Description is used on some templates (e.g., SCA sample screenshot)
             jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addDescription);
+            // On Agile Bug form, the rich text area is often bound to SystemInfo, so populate that as well
+            if (this.processTemplate === CommonData.Constants.processTemplate_Agile) {
+                jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addSystemInfo);
+            }
             if (addfoundInBuild) {
                 jsonPatchDocumentBase = jsonPatchDocumentBase.concat(addfoundInBuild);
             }
