@@ -97284,18 +97284,10 @@ class WorkItemCreatoroAuth {
         }
         else {
             const appTag = `VeracodeFlawImporter:${workItemDetails.Appid}`.replace(/'/g, "''");
-            // Escape area path and iteration path for WIQL query
-            const areaPath = (workItemDetails.Area || '').replace(/'/g, "''");
-            const iterationPath = (workItemDetails.IterationPath || '').replace(/'/g, "''");
-            // Build WIQL query with project, area path, and iteration path filters
-            // This ensures we only find work items in the current project's specified paths
+            // Build WIQL query to find work items by tag within the project
+            // Note: We don't filter by area/iteration path here to find existing work items
+            // even if they're in different paths (they'll be moved to the new path if overwrite flags are set)
             let wiqlQuery = `SELECT [System.Id] FROM workitems WHERE [System.Tags] CONTAINS '${appTag}'`;
-            if (areaPath) {
-                wiqlQuery += ` AND [System.AreaPath] UNDER '${areaPath}'`;
-            }
-            if (iterationPath) {
-                wiqlQuery += ` AND [System.IterationPath] UNDER '${iterationPath}'`;
-            }
             const wiql = {
                 query: wiqlQuery
             };
@@ -97305,7 +97297,7 @@ class WorkItemCreatoroAuth {
                 team: "",
                 teamId: ""
             };
-            console.log(`Searching for existing work items in project: ${this.projName} (ID: ${this.projectId}), area path: ${areaPath || 'any'}, iteration path: ${iterationPath || 'any'}`);
+            console.log(`Searching for existing work items in project: ${this.projName} (ID: ${this.projectId}) by tag '${appTag}'`);
             const existingRef = await this.vstsWI.queryByWiql(wiql, teamContext);
             const existingIds = (existingRef.workItems || [])
                 .map(w => w.id)
@@ -97690,21 +97682,15 @@ class WorkItemCreatoroAuth {
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: getWorkitem");
         try {
             title = title.replace(/'/g, "''");
-            // Build query with area path and iteration path filters if provided
+            // Build query to find work items by title within the project
+            // Note: We don't filter by area/iteration path here to find existing work items
+            // even if they're in different paths (they'll be moved to the new path if overwrite flags are set)
             let query = `Select [System.Id] From WorkItems Where [System.WorkItemType] = '${this.workItemType}' AND [System.Title] = '${title}'`;
-            if (areaPath) {
-                const escapedAreaPath = areaPath.replace(/'/g, "''");
-                query += ` AND [System.AreaPath] UNDER '${escapedAreaPath}'`;
-            }
-            if (iterationPath) {
-                const escapedIterationPath = iterationPath.replace(/'/g, "''");
-                query += ` AND [System.IterationPath] UNDER '${escapedIterationPath}'`;
-            }
             let selectWorkItemsQry = {
                 query: query
             };
             let teamContext = { project: projectName, projectId: teamProjectId, team: "", teamId: "" };
-            core.debug(`Querying work items in project: ${projectName} (ID: ${teamProjectId}), area: ${areaPath || 'any'}, iteration: ${iterationPath || 'any'}, title: ${title.substring(0, 50)}...`);
+            core.debug(`Querying work items in project: ${projectName} (ID: ${teamProjectId}), title: ${title.substring(0, 50)}...`);
             return await this.vstsWI.queryByWiql(selectWorkItemsQry, teamContext, undefined, undefined);
         }
         catch (error) {
