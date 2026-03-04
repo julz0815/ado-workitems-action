@@ -97662,7 +97662,7 @@ class WorkItemCreatoroAuth {
     async createWorkitem({ projectName, witype, title, description, severity, area, foundInBuild, tagsCollection, state, wiComments, overwriteAreaPathInWorkItemsOnImport, iterationPath, overwriteIterationPathInWorkItemsOnImport }) {
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: createWorkitem");
         let wijson = await this.getWorkItemJson({ witype, title, description, severity, area, foundInBuild, tagsCollection, wiComments, iterationPath });
-        return this.manageCreateandUpdateWorkItem(wijson, projectName, witype, state, title, area, overwriteAreaPathInWorkItemsOnImport, wiComments || null, foundInBuild, iterationPath, overwriteIterationPathInWorkItemsOnImport);
+        return this.manageCreateandUpdateWorkItem(wijson, projectName, witype, state, title, description, area, overwriteAreaPathInWorkItemsOnImport, wiComments || null, foundInBuild, iterationPath, overwriteIterationPathInWorkItemsOnImport);
     }
     /**
      * manage actions on create and update workitems
@@ -97677,14 +97677,44 @@ class WorkItemCreatoroAuth {
      * @param buildVersion Veracode scan version
      * @param overwriteIterationPathInWorkItemsOnImport determines whether iteration path field needs to overwrite in the WorkItem
      */
-    async manageCreateandUpdateWorkItem(wijson, projectName, witype, state, title, area, overwriteAreaPathInWorkItemsOnImport, wiComments, buildVersion, iterationPath, overwriteIterationPathInWorkItemsOnImport) {
+    async manageCreateandUpdateWorkItem(wijson, projectName, witype, state, title, description, area, overwriteAreaPathInWorkItemsOnImport, wiComments, buildVersion, iterationPath, overwriteIterationPathInWorkItemsOnImport) {
         core.debug("Class Name: WorkItemCreatoroAuth, Method Name: manageCreateandUpdateWorkItem");
         let deferred = q.defer();
         try {
-            await this.vstsWI.createWorkItem(undefined, wijson, projectName, witype, undefined, undefined).then((workitem) => {
+            await this.vstsWI.createWorkItem(undefined, wijson, projectName, witype, undefined, undefined).then(async (workitem) => {
                 console.log(`WorkItem '${workitem.id}' Created.`);
-                //VSTS doesn't allow to create work items with "Closed" state, therefore updating the stste to "Closed" once its created.
+                // Ensure description/repro steps are populated on creation
                 if (workitem.id) {
+                    try {
+                        const currentRepro = (workitem.fields && workitem.fields["Microsoft.VSTS.TCM.ReproSteps"]);
+                        const currentDescription = (workitem.fields && workitem.fields["System.Description"]);
+                        const descValue = description || "";
+                        const patchOps = [];
+                        if (descValue && (!currentRepro || String(currentRepro).trim() === "")) {
+                            patchOps.push({
+                                from: "",
+                                op: currentRepro ? vss.Operation.Replace : vss.Operation.Add,
+                                path: "/fields/Microsoft.VSTS.TCM.ReproSteps",
+                                value: descValue
+                            });
+                        }
+                        if (descValue && (!currentDescription || String(currentDescription).trim() === "")) {
+                            patchOps.push({
+                                from: "",
+                                op: currentDescription ? vss.Operation.Replace : vss.Operation.Add,
+                                path: "/fields/System.Description",
+                                value: descValue
+                            });
+                        }
+                        if (patchOps.length > 0) {
+                            const descPatchDoc = await this.getPromiseWithJsonPatchDocument(patchOps);
+                            await this.vstsWI.updateWorkItem(undefined, descPatchDoc, workitem.id, undefined, undefined);
+                        }
+                    }
+                    catch (e) {
+                        core.debug(`Failed to ensure description fields for WorkItem '${workitem.id}': ${e}`);
+                    }
+                    //VSTS doesn't allow to create work items with "Closed" state, therefore updating the state once it's created.
                     this.performPostWorkItemCreationActivities(state, workitem, area, overwriteAreaPathInWorkItemsOnImport, wiComments || '', buildVersion, iterationPath, overwriteIterationPathInWorkItemsOnImport);
                     deferred.resolve(workitem.id);
                 }
