@@ -63,14 +63,14 @@ inputs:
   overwrite-area-path:
     description: 'Overwrite Area Path in Work Items on Import'
     required: true
-    default: 'true'
+    default: 'false'
   iteration-path:
     description: 'Iteration Path'
     required: true
   overwrite-iteration-path:
     description: 'Overwrite Iteration Path in Work Items on Import'
     required: true
-    default: 'true'
+    default: 'false'
   flaw-import-limit:
     description: 'Flaw Import Limit'
     required: true

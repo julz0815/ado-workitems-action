@@ -42,9 +42,9 @@ This GitHub Action imports security flaws from Veracode Platform and creates wor
 - `import-type` (required): Import Type - Currently supported: 'All Unmitigated Flaws Violating Policy' (other import types will follow)
 - `work-item-type` (required): Work Item Type - Options: 'Bug', 'Issue', 'Task', 'Epic', 'Feature', 'Test Case', 'User Story'
 - `area-path` (required): Area Path
-- `overwrite-area-path` (required): Overwrite Area Path in Work Items on Import (true/false)
+- `overwrite-area-path` (required): Overwrite Area Path in Work Items on Import (default: false)
 - `iteration-path` (required): Iteration Path
-- `overwrite-iteration-path` (required): Overwrite Iteration Path in Work Items on Import (true/false)
+- `overwrite-iteration-path` (required): Overwrite Iteration Path in Work Items on Import (default: false)
 - `flaw-import-limit` (required): Maximum number of flaws to import (default: 1000)
 
 ### Work Item State Management
@@ -110,9 +110,9 @@ jobs:
           import-type: 'All Unmitigated Flaws Violating Policy'
           work-item-type: 'Bug'
           area-path: 'your-project'
-          overwrite-area-path: 'true'
+          overwrite-area-path: 'false'  # Set to 'true' to update area path on existing work items
           iteration-path: 'your-project'
-          overwrite-iteration-path: 'true'
+          overwrite-iteration-path: 'false'  # Set to 'true' to update iteration path on existing work items
           flaw-import-limit: '1000'
           
           # Work Item State Management
